@@ -7,9 +7,12 @@
  */
 
 import { writeFile, unlink, mkdir } from 'fs/promises';
-import { execSync, exec } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { tmpdir } from 'os';
 import { join, dirname } from 'path';
+
+const execAsync = promisify(exec);
 import { getEngine } from './engine';
 import { preprocessForRender, type WikilinkResolver } from './preprocessor';
 import { embedAssets, type EmbeddingContext } from './embedding';
@@ -96,9 +99,6 @@ export interface ExportContext {
 
   /** Callback for errors (optional) */
   onError?: (error: Error) => void;
-
-  /** Use async execution (default: false = sync) */
-  async?: boolean;
 
   /** Temp directory override (default: os.tmpdir()) */
   tempDir?: string;
@@ -257,48 +257,27 @@ export async function exportPresentation(
     // 6. Execute marp-cli
     onProgress?.(`Exporting to ${config.format.toUpperCase()}...`);
 
-    if (context.async) {
-      // Async execution (for Obsidian)
-      return new Promise((resolve) => {
-        exec(cmd, async (error) => {
-          await cleanup(tempPaths);
+    try {
+      const { stdout, stderr } = await execAsync(cmd);
+      if (stdout) onProgress?.(stdout);
+      if (stderr) onProgress?.(stderr);
 
-          if (error) {
-            onError?.(error);
-            resolve({
-              success: false,
-              outputPath: config.outputPath,
-              error,
-            });
-          } else {
-            onProgress?.('Export completed successfully');
-            resolve({
-              success: true,
-              outputPath: config.outputPath,
-            });
-          }
-        });
-      });
-    } else {
-      // Sync execution (for CLI)
-      try {
-        execSync(cmd, { stdio: 'inherit' });
-        onProgress?.('Export completed successfully');
-        return {
-          success: true,
-          outputPath: config.outputPath,
-        };
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        onError?.(err);
-        return {
-          success: false,
-          outputPath: config.outputPath,
-          error: err,
-        };
-      } finally {
-        await cleanup(tempPaths);
-      }
+      await cleanup(tempPaths);
+      onProgress?.('Export completed successfully');
+
+      return {
+        success: true,
+        outputPath: config.outputPath,
+      };
+    } catch (error) {
+      await cleanup(tempPaths);
+      const err = error instanceof Error ? error : new Error(String(error));
+      onError?.(err);
+      return {
+        success: false,
+        outputPath: config.outputPath,
+        error: err,
+      };
     }
   } catch (error) {
     // Cleanup on preprocessing/embedding errors

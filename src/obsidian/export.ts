@@ -117,10 +117,8 @@ export async function exportSlide(
     getMimeType: (path) => mimes.getType(path),
     mermaidRenderer: enableMermaid && mermaidCache ? mermaidCache : undefined,
     wikilinkResolver: (name) => name, // Return filename as-is for embedding
-    async: true, // Obsidian uses async execution
     tempDir: exportDir, // Use export dir for temp files
     onProgress: (message) => {
-      // Could use Notice here for verbose feedback
       console.log(`[Marp Export] ${message}`);
     },
     onError: (error) => {

@@ -213,7 +213,6 @@ program
       getMimeType: (path) => mimes.getType(path),
       mermaidRenderer,
       plantumlRenderer,
-      async: false, // CLI uses sync execution
       onProgress: verbose ? (msg) => console.log(msg) : undefined,
       onError: (err) => console.error(err.message),
     };

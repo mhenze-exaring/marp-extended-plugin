@@ -279,7 +279,6 @@ interface ExportContext {
   wikilinkResolver?: WikilinkResolver;
   onProgress?: (message: string) => void;
   onError?: (error: Error) => void;
-  async?: boolean;
   tempDir?: string;
 }
 
@@ -387,7 +386,6 @@ ExportResult { success, outputPath, error? }
 | Config source | File + CLI args | Plugin settings |
 | PathResolver | `NodePathResolver` | `VaultPathResolver` |
 | Mermaid renderer | `MermaidCliRenderer` (mmdc) | `MermaidCacheManager` (browser) |
-| Execution | Sync (`execSync`) | Async (`exec` callback) |
 | Feedback | Console output | `Notice` API |
 
 ### MermaidCacheManager (`obsidian/mermaidCache.ts`)
