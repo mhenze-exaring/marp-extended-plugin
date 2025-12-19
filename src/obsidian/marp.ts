@@ -19,8 +19,8 @@ export function createMarpInstance(options: MarpRenderOptions = {}): Marp {
   });
 
   // Copy themes from the default instance
-  const themes = Array.from(marp.themeSet.themes);
-  for (const theme of themes) {
+  // marp.themeSet.themes() is a method returning an iterator
+  for (const theme of marp.themeSet.themes()) {
     if (theme !== marp.themeSet.default) {
       try {
         instance.themeSet.add(theme.css);

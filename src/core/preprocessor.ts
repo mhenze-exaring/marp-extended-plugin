@@ -7,6 +7,7 @@
 
 import { MarpExtendedConfig } from './config';
 import type { DiagramRenderer } from './diagrams/types';
+import type { PathResolver } from './types';
 
 /**
  * Tokenize a string while preserving quoted substrings
@@ -337,8 +338,94 @@ export interface PreprocessorContext {
   config: MarpExtendedConfig;
   mermaidRenderer?: DiagramRenderer;
   plantumlRenderer?: DiagramRenderer;
-  basePath: string; // For resolving relative paths
-  fileDir: string; // Directory of the markdown file
+  /** Path resolver for file operations (optional, for embedding) */
+  pathResolver?: PathResolver;
+  /** Base/root path for resolving relative paths (e.g., vault root, project root) */
+  basePath: string;
+  /** Directory of the markdown file (relative to basePath) */
+  fileDir: string;
+}
+
+/**
+ * Wikilink conversion callback type
+ * Takes a wikilink name (e.g., "image.png") and returns the resolved URL
+ */
+export type WikilinkResolver = (name: string) => string;
+
+/**
+ * Context for preview/render preprocessing
+ * Simpler than full PreprocessorContext - used by both preview and export
+ */
+export interface RenderPreprocessContext {
+  /** Enable /// directive shorthand conversion */
+  enableDirectives?: boolean;
+  /** Enable mermaid diagram rendering */
+  enableMermaid?: boolean;
+  /** Mermaid renderer (browser or CLI) */
+  mermaidRenderer?: DiagramRenderer;
+  /** Callback to resolve wikilink paths (platform-specific) */
+  wikilinkResolver?: WikilinkResolver;
+}
+
+/**
+ * Wikilink image regex: ![[name]] or ![[name|alt]]
+ */
+const WIKILINK_IMAGE_REGEX = /!\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+
+/**
+ * Convert Obsidian-style wikilink images to standard markdown images
+ *
+ * Syntax: ![[image.png]] or ![[image.png|alt text]]
+ * Output: ![alt](resolved-url)
+ *
+ * @param markdown - Input markdown content
+ * @param resolver - Callback to resolve wikilink names to URLs
+ */
+export function preprocessWikilinks(
+  markdown: string,
+  resolver: WikilinkResolver,
+): string {
+  return markdown.replace(WIKILINK_IMAGE_REGEX, (_, name, alt) => {
+    const url = resolver(name);
+    const altText = alt || name;
+    return `![${altText}](${url})`;
+  });
+}
+
+/**
+ * Unified preprocessing pipeline for rendering
+ *
+ * This is the simplified pipeline used by both preview and export.
+ * It handles:
+ * 1. Wikilink conversion (if resolver provided)
+ * 2. /// directive shorthand (if enabled)
+ * 3. Mermaid diagrams (if enabled and renderer provided)
+ *
+ * For export, additional steps (embedding, PlantUML) are handled
+ * by the full `preprocess()` function.
+ */
+export async function preprocessForRender(
+  markdown: string,
+  context: RenderPreprocessContext,
+): Promise<string> {
+  let content = markdown;
+
+  // 1. Convert wikilinks to standard markdown images
+  if (context.wikilinkResolver) {
+    content = preprocessWikilinks(content, context.wikilinkResolver);
+  }
+
+  // 2. /// directive shorthand -> HTML comments
+  if (context.enableDirectives) {
+    content = preprocessDirectives(content);
+  }
+
+  // 3. Mermaid diagrams -> inline SVG/img
+  if (context.enableMermaid && context.mermaidRenderer) {
+    content = await preprocessMermaid(content, context.mermaidRenderer);
+  }
+
+  return content;
 }
 
 /**

@@ -1,6 +1,5 @@
 import { FileSystemAdapter, Notice, Plugin, TFile } from 'obsidian';
 import { MARP_DEFAULT_SETTINGS, MarpPluginSettings } from './settings';
-import { MARP_PREVIEW_VIEW_TYPE, PreviewView } from './preview';
 import { MARP_DECK_VIEW_TYPE, DeckView } from './deckView';
 import { MarpSettingTab } from './settingTab';
 import { readdir, readFile } from 'fs/promises';
@@ -24,7 +23,7 @@ export default class MarpPlugin extends Plugin {
       theme: this.settings.mermaidTheme,
     });
 
-    // Ribbon icon for existing preview
+    // Ribbon icon for preview
     this.addRibbonIcon('presentation', 'Marp: Open Preview', async _ => {
       const file = this.app.workspace.activeEditor?.file;
       if (!file)
@@ -35,21 +34,10 @@ export default class MarpPlugin extends Plugin {
       await this.activateView(file);
     });
 
-    // Ribbon icon for deck preview
-    this.addRibbonIcon('layers', 'Marp: Open Deck Preview', async _ => {
-      const file = this.app.workspace.activeEditor?.file;
-      if (!file)
-        return new Notice(
-          'Please select the tab for the file you want to view in Marp, and then click this button again.',
-          10000,
-        );
-      await this.activateDeckView(file);
-    });
-
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const that = this;
 
-    // Command for existing preview
+    // Command for preview
     this.addCommand({
       id: 'open-preview',
       name: 'Open Preview',
@@ -60,22 +48,7 @@ export default class MarpPlugin extends Plugin {
       },
     });
 
-    // Command for deck preview
-    this.addCommand({
-      id: 'open-deck-preview',
-      name: 'Open Deck Preview',
-      async editorCallback(_editor, ctx) {
-        const file = ctx.file;
-        if (!file) return;
-        await that.activateDeckView(file);
-      },
-    });
-
-    // Register views
-    this.registerView(
-      MARP_PREVIEW_VIEW_TYPE,
-      leaf => new PreviewView(leaf, this.settings, this.mermaidCache),
-    );
+    // Register view
     this.registerView(
       MARP_DECK_VIEW_TYPE,
       leaf => new DeckView(leaf, this.settings, this.mermaidCache),
@@ -109,7 +82,6 @@ export default class MarpPlugin extends Plugin {
   }
 
   async onunload() {
-    this.app.workspace.detachLeavesOfType(MARP_PREVIEW_VIEW_TYPE);
     this.app.workspace.detachLeavesOfType(MARP_DECK_VIEW_TYPE);
 
     // Clean up Mermaid cache
@@ -126,31 +98,10 @@ export default class MarpPlugin extends Plugin {
   }
 
   async activateView(file: TFile) {
-    this.app.workspace.detachLeavesOfType(MARP_PREVIEW_VIEW_TYPE);
-
-    if (this.settings.createNewSplitTab) {
-      // create a preview on a new split tab
-      const leaf = this.app.workspace.getLeaf('split');
-      await leaf.setViewState({
-        type: MARP_PREVIEW_VIEW_TYPE,
-        active: true,
-        state: { file },
-      });
-    } else {
-      // do not create new split tab, just a new tab
-      const leaf = this.app.workspace.getLeaf('tab');
-      await leaf.setViewState({
-        type: MARP_PREVIEW_VIEW_TYPE,
-        active: true,
-        state: { file },
-      });
-    }
-  }
-
-  async activateDeckView(file: TFile) {
     this.app.workspace.detachLeavesOfType(MARP_DECK_VIEW_TYPE);
 
     if (this.settings.createNewSplitTab) {
+      // create a preview on a new split tab
       const leaf = this.app.workspace.getLeaf('split');
       await leaf.setViewState({
         type: MARP_DECK_VIEW_TYPE,
@@ -158,6 +109,7 @@ export default class MarpPlugin extends Plugin {
         state: { file },
       });
     } else {
+      // do not create new split tab, just a new tab
       const leaf = this.app.workspace.getLeaf('tab');
       await leaf.setViewState({
         type: MARP_DECK_VIEW_TYPE,

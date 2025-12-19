@@ -1,365 +1,463 @@
-# Obsidian Marp Plugin - Architecture Documentation
+# Architecture Documentation
 
-## Feature Overview
+This document describes the technical architecture of the Obsidian Marp Plugin.
 
-| Feature | Description | Implementation |
-|---------|-------------|----------------|
-| **Live Preview** | Real-time Marp slide preview within Obsidian | `preview.ts`, `deckView.ts` |
-| **Deck View** | Alternative preview with sidebar toolbar support | `deckView.ts` |
-| **Export** | Export slides to PDF, PPTX, HTML via marp-cli | `export.ts` |
-| **Wikilink Images** | Native `![[image.png]]` syntax support | `preview.ts`, `deckView.ts` |
-| **Custom Themes** | Load custom CSS themes from vault | `main.ts`, `deckView.ts` |
-| **Auto-Reload** | Automatic preview refresh on file save | `preview.ts`, `deckView.ts` |
-| **Mermaid Diagrams** | Convert Mermaid code blocks to inline SVGs | `mermaidCache.ts` |
-| **Markdown-It Plugins** | Container blocks and highlight syntax | `markdownItPlugins.ts` |
-| **Math Typesetting** | MathJax/KaTeX equation rendering | `settings.ts`, `marp.ts` |
-| **Marp Detection** | Auto-detect presentations via frontmatter | `deckView.ts` |
-
----
-
-## Core Concepts
-
-### 1. Dual View Architecture
-
-The plugin provides two distinct view types:
-
-- **PreviewView** (`preview.ts`): Traditional preview with header actions
-- **DeckView** (`deckView.ts`): Enhanced preview with sidebar toolbar, better for docked usage
-
-Both views share common functionality but DeckView adds:
-- Sidebar-aware toolbar that shows/hides based on position
-- Auto-load Marp presentations when switching files
-- Marp browser integration for enhanced rendering
-
-### 2. External Export via npx
-
-Exports use `npx @marp-team/marp-cli@latest` as an external process. This is **intentional** to avoid Electron security restrictions that block dynamic imports via `file://` protocol.
-
-**Do NOT attempt to bundle marp-cli into the plugin.**
-
-### 3. Wikilink Image Conversion
-
-The plugin converts Obsidian's native wikilink syntax to standard Markdown:
+## Project Structure
 
 ```
-![[image.png]] → ![image.png](app://local/path/to/image.png)
+obsidian-marp-plugin/
+├── src/
+│   ├── core/                    # Shared core (CLI + Obsidian)
+│   │   ├── types.ts             # PathResolver interface, isLocalPath util
+│   │   ├── config.ts            # Configuration types and loading
+│   │   ├── preprocessor.ts      # Markdown preprocessing pipeline
+│   │   ├── embedding.ts         # Image/iframe embedding utilities
+│   │   ├── export.ts            # Unified export pipeline
+│   │   ├── marpCli.ts           # Marp CLI command building utilities
+│   │   ├── nodePathResolver.ts  # Node.js PathResolver implementation
+│   │   ├── markdownItPlugins.ts # Container and mark plugins
+│   │   ├── markdownItPlugins.test.ts  # Tests for plugins
+│   │   ├── engine.ts            # marp-cli engine generation
+│   │   ├── index.ts             # Core module exports
+│   │   └── diagrams/            # Diagram renderers
+│   │       ├── types.ts         # DiagramRenderer interface
+│   │       ├── mermaid-cli.ts   # CLI mermaid renderer (mmdc)
+│   │       └── plantuml.ts      # PlantUML renderer (java -jar)
+│   │
+│   ├── cli/                     # CLI entry point
+│   │   └── index.ts             # marp-extended CLI (thin wrapper)
+│   │
+│   └── obsidian/                # Obsidian-specific code
+│       ├── main.ts              # Plugin entry point
+│       ├── deckView.ts          # DeckView with sidebar toolbar (unified preview)
+│       ├── export.ts            # Export wrapper (thin wrapper around core)
+│       ├── marp.ts              # Marp instance factory
+│       ├── mermaidCache.ts      # Browser-based mermaid caching (implements DiagramRenderer)
+│       ├── vaultPathResolver.ts # Obsidian vault PathResolver
+│       ├── settings.ts          # Plugin settings interface
+│       └── settingTab.ts        # Settings UI
+│
+├── dist/                        # Build output (gitignored)
+│   ├── obsidian/                # Obsidian plugin
+│   │   ├── main.js
+│   │   └── manifest.json
+│   └── cli/                     # CLI tool
+│       └── index.js
+│
+├── docs/                        # Documentation
+├── esbuild.config.mjs           # Build configuration
+├── manifest.json                # Obsidian plugin manifest
+└── package.json
 ```
 
-This happens in `replaceImageWikilinks()` method in both view classes.
+## Core Module (`src/core/`)
 
-### 4. Mermaid Diagram Caching
+The core module contains shared logic used by both the CLI and Obsidian plugin.
 
-Mermaid diagrams are preprocessed and cached:
-1. Parse markdown for `mermaid` code blocks
-2. Render to SVG using Mermaid library
-3. Convert SVG to base64 data URI
-4. Replace code block with `<img>` tag
-5. Cache SVG by content hash
+### Configuration (`config.ts`)
 
-### 5. Markdown-It Plugin Embedding
+Defines the `MarpExtendedConfig` interface:
 
-Custom Markdown-It plugins are compiled at build time and embedded as strings:
-1. ESBuild compiles `markdownItPlugins.ts` separately
-2. Output is stored as a string constant
-3. Injected into marp-cli engine at runtime via `engine.ts`
-
----
-
-## Source Structure
-
-```
-src/
-├── main.ts              # Plugin entry point
-├── preview.ts           # PreviewView component
-├── deckView.ts          # DeckView with sidebar toolbar
-├── export.ts            # Export via npx marp-cli
-├── marp.ts              # Marp instance factory
-├── engine.ts            # Custom marp-cli engine
-├── mermaidCache.ts      # Mermaid SVG caching
-├── markdownItPlugins.ts # Container & mark plugins
-├── settings.ts          # Settings interface
-├── settingTab.ts        # Settings UI
-└── convertImage.ts      # Image path resolution
+```typescript
+interface MarpExtendedConfig {
+  preprocessor: {
+    enableDirectiveShorthand: boolean;  // /// syntax
+    enableContainerPlugin: boolean;     // ::: syntax
+    enableMarkPlugin: boolean;          // ==highlight== syntax
+  };
+  diagrams: {
+    mermaid: { enabled, backend, cliPath?, theme };
+    plantuml: { enabled, jarPath?, javaPath? };
+  };
+  embedding: {
+    images: boolean;   // Base64 embedding
+    iframes: boolean;  // Data URL embedding
+  };
+  export: { format: 'html' | 'pdf' | 'pptx' };
+  mode: 'safe' | 'unsafe';
+  marpCliArgs?: string[];
+}
 ```
 
----
+Key functions:
+- `loadConfig(path?)` - Load from JSON file with defaults
+- `fromObsidianSettings(settings)` - Convert Obsidian settings to config
 
-## Module Responsibilities
+### Preprocessor (`preprocessor.ts`)
 
-### main.ts (Plugin Entry)
+Transforms markdown before Marp processes it.
 
-**Responsibilities:**
-- Plugin lifecycle (`onload`, `onunload`)
-- Command registration
-- Ribbon icon setup
-- View registration
-- Theme loading from vault
-- Mermaid cache initialization
+#### Unified Pipeline (`preprocessForRender`)
 
-**Key Methods:**
-- `activateView(file)` - Open PreviewView for file
-- `activateDeckView(file)` - Open DeckView for file
-- `loadSettings()` / `saveSettings()` - Persist settings
-- `onMermaidThemeChange()` - Handle theme changes
+The simplified pipeline used by both preview and export:
 
-### preview.ts (Preview View)
+```typescript
+interface RenderPreprocessContext {
+  enableDirectives?: boolean;        // /// directive shorthand
+  enableMermaid?: boolean;           // Mermaid diagram rendering
+  mermaidRenderer?: DiagramRenderer; // Injected renderer (browser or CLI)
+  wikilinkResolver?: WikilinkResolver; // Platform-specific URL resolution
+}
 
-**Responsibilities:**
-- Render Marp slides in ItemView
-- Convert wikilink images
-- Handle auto-reload on file changes
-- Provide export actions in header
-
-**Key Methods:**
-- `replaceImageWikilinks(markdown)` - Convert `![[]]` to `![]()`
-- `renderPreview()` - Render markdown to slides
-- `onChange()` - Handle file modifications
-- `addActions()` - Add header export buttons
-
-### deckView.ts (Deck View)
-
-**Responsibilities:**
-- Enhanced preview with Marp browser
-- Sidebar-aware toolbar
-- Auto-load Marp presentations
-- Theme loading per-instance
-
-**Key Methods:**
-- `createMarpInstance()` - Create Marp with current settings
-- `isMarpPresentation(file)` - Check frontmatter for `marp: true`
-- `resolveHtmlImagePaths(html, fileDir)` - Fix relative image paths
-- `isInSidebar()` / `updateToolbarVisibility()` - Toolbar management
-- `scrollToSlide(index)` - Navigate to specific slide
-
-### export.ts (Export Handler)
-
-**Responsibilities:**
-- Execute marp-cli via npx
-- Convert images to base64 for embedding
-- Manage temporary files
-- Apply Mermaid preprocessing
-
-**Key Flow:**
-1. Read file content
-2. Preprocess Mermaid diagrams
-3. Convert images to base64
-4. Write temp files (markdown + engine)
-5. Execute `npx @marp-team/marp-cli`
-6. Clean up temp files
-
-### marp.ts (Marp Factory)
-
-**Responsibilities:**
-- Maintain default Marp instance for themes
-- Create configured Marp instances
-- Copy themes between instances
-
-**Key Functions:**
-- `marp` - Default singleton for theme loading
-- `createMarpInstance(options)` - Factory with HTML option
-
-### engine.ts (Custom Engine)
-
-**Responsibilities:**
-- Generate custom marp-cli engine code
-- Enable data URL validation
-- Optionally embed Markdown-It plugins
-
-**Key Function:**
-- `getEngine(enablePlugins)` - Returns engine JavaScript as string
-
-### mermaidCache.ts (Mermaid Handler)
-
-**Responsibilities:**
-- Parse mermaid code blocks with sizing
-- Render diagrams to SVG
-- Cache rendered SVGs by hash
-- Convert to base64 data URIs
-
-**Key Methods:**
-- `preprocessMarkdown(markdown)` - Main entry point
-- `render(code)` - Render single diagram
-- `svgToDataUri(svg)` - Convert for embedding
-
-**Sizing Syntax:**
-```markdown
-```mermaid w:400
-graph LR
-    A --> B
-```
+async function preprocessForRender(
+  markdown: string,
+  context: RenderPreprocessContext
+): Promise<string>;
 ```
 
-### markdownItPlugins.ts (MD Extensions)
+Steps:
+1. **Wikilink conversion** - `![[image.png]]` → `![image.png](resolved-url)`
+2. **Directive shorthand** - `/// lead` → `<!-- _class: lead -->`
+3. **Mermaid diagrams** - Code blocks → inline SVG
 
-**Contains:**
-- `genericContainerPlugin` - `:::` container blocks with flexible syntax
-- `markPlugin` - `==highlighted==` text support
+#### Full Pipeline (`preprocess`)
 
-**Container Syntax:**
+Used by CLI for full processing including PlantUML and safe mode handling.
+
+Key functions:
+- `preprocessWikilinks(markdown, resolver)` - Convert Obsidian wikilinks
+- `preprocessDirectives(markdown)` - Transform `///` syntax
+- `preprocessMermaid(markdown, renderer)` - Render mermaid blocks
+- `preprocessPlantUML(markdown, renderer)` - Render PlantUML blocks
+- `preprocessForRender(markdown, context)` - Unified render pipeline
+- `preprocess(markdown, context)` - Full CLI pipeline
+
+### Markdown-It Plugins (`markdownItPlugins.ts`)
+
+Custom syntax extensions for markdown-it:
+
+#### Generic Container Plugin
+
 ```markdown
 ::: columns
 content
 :::
 
-::: span.highlight#id style: value
-content
+::: .class#id attr="value"
+styled content
 :::
 ```
 
-### settings.ts (Settings Model)
+Supports:
+- Element type: `div` (default), `span`, etc.
+- Classes: `columns`, `.explicit-class`
+- IDs: `#my-id`
+- Attributes: `attr="value"`, `style="..."`
 
-**Settings Categories:**
-- Preview: `autoReload`, `createNewSplitTab`, `enableSyncPreview`
-- Theme: `themeDir`
-- Rendering: `enableHTML`, `mathTypesetting`, `enableMarkdownItPlugins`
-- Mermaid: `enableMermaid`, `mermaidTheme`
-- Export: `exportPath`, `chromePath`
+#### Mark Plugin
 
-### settingTab.ts (Settings UI)
-
-Organizes settings into sections:
-1. Preview Settings
-2. Marp Rendering
-3. Mermaid Diagrams
-4. Theme Settings
-5. Export Settings
-
-### convertImage.ts (Image Utilities)
-
-**Responsibilities:**
-- Resolve image paths (vault-relative, absolute, URLs)
-- Convert images to base64
-- Process HTML for image path resolution
-
-**Key Functions:**
-- `convertToBase64(path, fileDir)` - For export embedding
-- `convertHtml(html, fileDir)` - Fix paths in rendered HTML
-
----
-
-## Data Flow Diagrams
-
-### Preview Rendering Flow
-
-```mermaid
-flowchart TD
-    A[User Opens Preview] --> B[Load File Content]
-    B --> C[Replace Wikilinks]
-    C --> D{Mermaid Enabled?}
-    D -->|Yes| E[Preprocess Mermaid]
-    D -->|No| F[Create Marp Instance]
-    E --> F
-    F --> G[Render to HTML/CSS]
-    G --> H[Convert Image Paths]
-    H --> I[Display in Container]
+```markdown
+This is ==highlighted== text.
 ```
 
-### Export Flow
+Renders to `<mark>highlighted</mark>`.
 
-```mermaid
-flowchart TD
-    A[User Triggers Export] --> B[Read File Content]
-    B --> C{Mermaid Enabled?}
-    C -->|Yes| D[Preprocess Mermaid]
-    C -->|No| E[Extract Image Paths]
-    D --> E
-    E --> F[Convert Images to Base64]
-    F --> G[Write Temp Markdown]
-    G --> H[Write Temp Engine]
-    H --> I[Execute npx marp-cli]
-    I --> J[Show Success Notice]
-    J --> K[Clean Up Temp Files]
+### Engine (`engine.ts`)
+
+Generates JavaScript code for marp-cli's custom engine:
+
+```typescript
+function getEngine(enablePlugins: boolean): string
 ```
 
-### Mermaid Processing Flow
+The generated engine:
+- Validates data URLs (allows base64 images)
+- Optionally registers container and mark plugins
 
-```mermaid
-flowchart TD
-    A[Markdown Input] --> B[Find Mermaid Blocks]
-    B --> C{Blocks Found?}
-    C -->|No| D[Return Original]
-    C -->|Yes| E[Parse Size Parameters]
-    E --> F[Generate Cache Key]
-    F --> G{Cached?}
-    G -->|Yes| H[Use Cached SVG]
-    G -->|No| I[Render with Mermaid]
-    I --> J[Clean SVG]
-    J --> K[Cache SVG]
-    K --> H
-    H --> L[Convert to Data URI]
-    L --> M[Replace Code Block]
-    M --> N[Return Modified Markdown]
+### Diagram Renderers (`diagrams/`)
+
+#### DiagramRenderer Interface
+
+```typescript
+interface DiagramRenderer {
+  render(code: string): Promise<string>;
+  initialize?(): Promise<void>;
+  destroy?(): void;
+}
 ```
 
-### View Initialization Flow
+#### Implementations
 
-```mermaid
-flowchart TD
-    A[Plugin Loads] --> B[Load Settings]
-    B --> C[Initialize Mermaid Cache]
-    C --> D[Register PreviewView]
-    D --> E[Register DeckView]
-    E --> F[Add Commands]
-    F --> G[Add Ribbon Icons]
-    G --> H[Load Custom Themes]
-    H --> I[Plugin Ready]
+| Renderer | Backend | Use Case |
+|----------|---------|----------|
+| `MermaidCliRenderer` | `mmdc` command | CLI, batch processing |
+| `PlantUMLRenderer` | `java -jar plantuml.jar` | CLI |
+| `MermaidCacheManager` | Browser mermaid.js | Obsidian preview/export |
+
+### PathResolver Pattern (`types.ts`, `embedding.ts`)
+
+The PathResolver interface abstracts file system access, enabling the same embedding logic
+to work in both CLI and Obsidian contexts.
+
+#### PathResolver Interface
+
+```typescript
+interface PathResolver {
+  exists(path: string, fileDir: string): Promise<boolean>;
+  readAsBase64(path: string, fileDir: string): Promise<string | null>;
+  readAsText(path: string, fileDir: string): Promise<string | null>;
+  getResourceUrl(path: string, fileDir: string): Promise<string | null>;
+  resolveAbsolute(path: string, fileDir: string): Promise<string | null>;
+}
 ```
 
----
+#### Implementations
 
-## Key Design Decisions
+| Resolver | Environment | Backend |
+|----------|-------------|---------|
+| `NodePathResolver` | CLI | Node.js `fs/promises` |
+| `VaultPathResolver` | Obsidian | `app.vault.adapter` |
 
-### Why External Export?
+Path resolution strategy:
+1. Relative paths resolved from `fileDir` (directory of markdown file)
+2. If not found, try from root (vault root or project root)
+3. If still not found and path is absolute, try the absolute path
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| **npx (current)** | Works reliably, full filesystem access | Requires Node.js installed |
-| Bundled marp-cli | No external dependencies | Blocked by Electron security |
+#### Embedding Utilities (`embedding.ts`)
 
-### Why Dual Views?
+```typescript
+// Convert images and iframes to base64 data URLs
+async function embedAssets(
+  content: string,
+  fileDir: string,
+  context: EmbeddingContext,
+  options: { images?: boolean; iframes?: boolean }
+): Promise<string>;
+```
 
-- **PreviewView**: Simple, uses standard Obsidian header actions
-- **DeckView**: Advanced, sidebar-aware toolbar for docked usage
+Used by both CLI and Obsidian export to embed assets for portable output.
 
-### Why Mermaid Caching?
+### Marp CLI Utilities (`marpCli.ts`)
 
-Mermaid rendering is expensive. Caching by content hash:
-- Avoids re-rendering unchanged diagrams
-- Persists across preview refreshes
-- Clears when theme changes
+Shared command building for marp-cli invocation:
 
-### Why Embedded Plugins?
+```typescript
+interface MarpCliOptions {
+  enginePath: string;
+  outputPath: string;
+  format: ExportFormat;
+  enableHtml?: boolean;
+  allowLocalFiles?: boolean;
+  themeDir?: string;
+  bespokeTransition?: boolean;
+  additionalArgs?: string[];
+}
 
-Markdown-It plugins are compiled at build time because:
-- marp-cli runs as external process
-- Cannot import from bundled plugin
-- String injection allows runtime plugin loading
+function buildMarpCliCommandString(inputPath: string, options: MarpCliOptions): string;
+function contentRequiresHtml(content: string): boolean;
+```
 
----
+Used by the unified export pipeline for consistent command generation.
+
+### Export Pipeline (`export.ts`)
+
+Unified export logic used by both CLI and Obsidian:
+
+```typescript
+interface ExportConfig {
+  format: 'html' | 'pdf' | 'pptx';
+  outputPath: string;
+  themeDir?: string;
+  enableDirectives: boolean;
+  enableMarkdownItPlugins: boolean;
+  enableHtml: boolean;
+  allowLocalFiles: boolean;
+  enableMermaid: boolean;
+  enablePlantUML: boolean;
+  embedImages: boolean;
+  embedIframes: boolean;
+  bespokeTransition: boolean;
+  additionalMarpArgs?: string[];
+}
+
+interface ExportContext {
+  pathResolver: PathResolver;
+  fileDir: string;
+  getMimeType: (path: string) => string | null;
+  mermaidRenderer?: DiagramRenderer;
+  plantumlRenderer?: DiagramRenderer;
+  wikilinkResolver?: WikilinkResolver;
+  onProgress?: (message: string) => void;
+  onError?: (error: Error) => void;
+  async?: boolean;
+  tempDir?: string;
+}
+
+async function exportPresentation(
+  content: string,
+  config: ExportConfig,
+  context: ExportContext
+): Promise<ExportResult>;
+```
+
+Key design:
+- **ExportConfig**: What to do (format, features, paths)
+- **ExportContext**: How to do it (platform-specific implementations)
+- Platform modules are thin wrappers that create config/context and call `exportPresentation()`
+
+## CLI (`src/cli/`)
+
+Standalone command-line tool for processing Marp presentations.
+
+### Security Modes
+
+| Mode | Flags | Features |
+|------|-------|----------|
+| `safe` (default) | None | Only `///` directives |
+| `unsafe` | `--html --allow-local-files` | All features |
+
+In safe mode, features that read local files are disabled:
+- Image/iframe embedding
+- Mermaid/PlantUML rendering
+- Container/mark plugins (output HTML)
+
+### Usage
+
+```bash
+marp-extended presentation.md --unsafe --format pdf -o output.pdf
+```
+
+## Obsidian Plugin (`src/obsidian/`)
+
+### DeckView (Unified Preview)
+
+The plugin uses a single `DeckView` component for all preview functionality:
+
+| Feature | Description |
+|---------|-------------|
+| Sidebar toolbar | Export buttons visible when docked in sidebar |
+| Header actions | Export buttons in header for all positions |
+| Auto-reload | Refreshes on file save |
+| Marp detection | Auto-loads files with `marp: true` frontmatter |
+| Theme support | Loads custom themes from vault directory |
+
+### Preprocessing Flow (Preview)
+
+```
+File content
+     ↓
+preprocessForRender() [CORE]
+  ├─ wikilinkResolver → app:// URLs
+  ├─ preprocessDirectives → HTML comments
+  └─ mermaidRenderer → inline SVG
+     ↓
+marp.render(content) [IN-PROCESS]
+     ↓
+resolveHtmlImagePaths() [OBSIDIAN]
+  └─ img/iframe/css url() → app:// URLs
+     ↓
+Display in container
+```
+
+### Export Flow (Unified Pipeline)
+
+Both CLI and Obsidian use the same core export pipeline (`core/export.ts`):
+
+```
+exportPresentation(content, config, context)
+     │
+     ├─ Platform provides:
+     │    ├─ ExportConfig (from CLI args or Obsidian settings)
+     │    ├─ PathResolver (NodePathResolver or VaultPathResolver)
+     │    └─ DiagramRenderer (MermaidCliRenderer or MermaidCacheManager)
+     │
+     ↓
+preprocessForRender() [CORE]
+  ├─ wikilinkResolver → relative paths
+  ├─ preprocessDirectives → HTML comments
+  └─ mermaidRenderer → inline SVG
+     ↓
+embedAssets() [CORE]
+  └─ images/iframes → base64 data URLs
+     ↓
+Write temp files (.md, engine.js)
+     ↓
+Execute: npx @marp-team/marp-cli --engine engine.js ...
+     ↓
+Clean up temp files
+     ↓
+ExportResult { success, outputPath, error? }
+```
+
+**Why external process?** Electron security blocks dynamic imports via `file://`. Using npx bypasses this.
+
+**Platform differences:**
+| Aspect | CLI | Obsidian |
+|--------|-----|----------|
+| Config source | File + CLI args | Plugin settings |
+| PathResolver | `NodePathResolver` | `VaultPathResolver` |
+| Mermaid renderer | `MermaidCliRenderer` (mmdc) | `MermaidCacheManager` (browser) |
+| Execution | Sync (`execSync`) | Async (`exec` callback) |
+| Feedback | Console output | `Notice` API |
+
+### MermaidCacheManager (`obsidian/mermaidCache.ts`)
+
+Browser-based rendering with caching. Implements `DiagramRenderer` interface for use with core preprocessor.
+
+Features:
+1. Content-hash based caching
+2. Theme-aware (cache clears on theme change)
+3. Error placeholder for failed renders
+4. Hidden DOM container for rendering
 
 ## Build System
 
 ### ESBuild Configuration
 
+Two build targets configured in `esbuild.config.mjs`:
+
+#### Obsidian Plugin
+
 ```javascript
-// Key configuration in esbuild.config.mjs
 {
-  entryPoints: ['src/main.ts'],
-  bundle: true,
+  entryPoints: ['src/obsidian/main.ts'],
+  outfile: 'dist/obsidian/main.js',
   format: 'cjs',
   external: ['obsidian', 'electron', ...builtins],
   plugins: [markdownItPluginsPlugin],
 }
 ```
 
-### Markdown-It Plugin Compilation
+#### CLI
 
-1. `markdownItPlugins.ts` compiled separately
-2. Output stored as string constant
-3. Virtual module `markdown-it-plugins-string` provides access
-4. `engine.ts` imports and embeds in engine code
+```javascript
+{
+  entryPoints: ['src/cli/index.ts'],
+  outfile: 'dist/cli/index.js',
+  platform: 'node',
+  format: 'cjs',
+}
+```
 
----
+### Plugin Embedding
+
+Markdown-it plugins are compiled to a string and embedded:
+
+1. ESBuild compiles `src/core/markdownItPlugins.ts` separately
+2. Output stored in virtual module `markdown-it-plugins-string`
+3. `engine.ts` imports and injects into generated engine code
+
+This is necessary because marp-cli runs as an external process.
+
+## Data Flow Summary
+
+### Preview vs Export
+
+| Aspect | Preview | Export |
+|--------|---------|--------|
+| Wikilink resolution | → `app://` URLs | → relative paths |
+| Mermaid rendering | Browser (MermaidCacheManager) | Browser (MermaidCacheManager) |
+| Image handling | Path resolution (app://) | Base64 embedding |
+| Marp processing | In-process | External npx process |
+| Output | DOM manipulation | File on disk |
+
+### Shared Core Usage
+
+Both preview and export use:
+- `preprocessForRender()` - Unified preprocessing pipeline
+- `MermaidCacheManager` - Diagram rendering (implements `DiagramRenderer`)
+- `buildMarpCliCommandString()` - Command building (export only)
+- `embedAssets()` - Asset embedding (export only)
 
 ## Dependencies
 
@@ -368,22 +466,62 @@ Markdown-It plugins are compiled at build time because:
 | Package | Purpose |
 |---------|---------|
 | `@marp-team/marp-core` | Marp rendering engine |
+| `commander` | CLI argument parsing |
 | `fix-path` | Fix PATH for macOS GUI apps |
-| `mermaid` | Diagram rendering |
+| `mermaid` | Browser diagram rendering |
 | `mime` | MIME type detection |
 
-### Development
+### External Tools (CLI)
 
-- TypeScript, ESBuild, ESLint, Prettier
-- Obsidian type stubs
+| Tool | Purpose | Required |
+|------|---------|----------|
+| `npx` | Run marp-cli | For export |
+| `mmdc` | Mermaid CLI | Optional |
+| `java` + `plantuml.jar` | PlantUML | Optional |
 
----
+## Security Considerations
 
-## File Locations
+### Safe vs Unsafe Mode (CLI)
 
-| File Type | Location |
-|-----------|----------|
-| Plugin output | `main.js` (project root) |
-| Custom themes | `{vault}/MarpTheme/*.css` |
-| Exports | `~/Downloads/` (default) |
-| Temp files | `~/Downloads/*.tmp` |
+The CLI defaults to safe mode because:
+
+1. **`--html` risk**: Allows script injection
+2. **`--allow-local-files` risk**: Path traversal attacks
+3. **Preprocessor risk**: Reads files before marp-cli runs
+
+In safe mode, preprocessors that read files are disabled entirely.
+
+### Obsidian Context
+
+The Obsidian plugin always operates in "unsafe" mode because:
+- Runs locally on user's machine
+- User controls their own files
+- No untrusted input scenario
+
+## Extension Points
+
+### Custom Themes
+
+Place CSS files in the theme folder:
+
+```
+vault/MarpTheme/
+├── corporate.css
+└── academic.css
+```
+
+Use in frontmatter: `theme: corporate`
+
+### Configuration File (CLI)
+
+Create `marp-extended.config.json`:
+
+```json
+{
+  "mode": "unsafe",
+  "diagrams": {
+    "mermaid": { "enabled": true, "theme": "dark" }
+  },
+  "export": { "format": "pdf" }
+}
+```

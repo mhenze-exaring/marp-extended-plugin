@@ -11,19 +11,22 @@
  */
 
 import { program } from 'commander';
-import { readFile, writeFile, unlink } from 'fs/promises';
-import { execSync } from 'child_process';
-import { tmpdir } from 'os';
-import { join, dirname, basename, extname, resolve } from 'path';
+import { readFile } from 'fs/promises';
+import { dirname, basename, extname, resolve, join } from 'path';
+import mimes from 'mime';
 import {
   loadConfig,
   type MarpExtendedConfig,
   type ExportFormat,
 } from '../core/config';
-import { preprocess, type PreprocessorContext } from '../core/preprocessor';
-import { getEngine } from '../core/engine';
 import { MermaidCliRenderer } from '../core/diagrams/mermaid-cli';
 import { PlantUMLRenderer } from '../core/diagrams/plantuml';
+import { NodePathResolver } from '../core/nodePathResolver';
+import {
+  exportPresentation,
+  createExportConfigFromMarpConfig,
+  type ExportContext,
+} from '../core/export';
 
 // Package version (will be set during build)
 const VERSION = '1.0.0';
@@ -142,22 +145,6 @@ program
       console.log('Pass-through args:', passThrough);
     }
 
-    // Create diagram renderers
-    const mermaidRenderer = config.diagrams.mermaid.enabled
-      ? new MermaidCliRenderer({
-          cliPath: config.diagrams.mermaid.cliPath,
-          theme: config.diagrams.mermaid.theme,
-        })
-      : undefined;
-
-    const plantumlRenderer =
-      config.diagrams.plantuml.enabled && config.diagrams.plantuml.jarPath
-        ? new PlantUMLRenderer({
-            jarPath: config.diagrams.plantuml.jarPath,
-            javaPath: config.diagrams.plantuml.javaPath,
-          })
-        : undefined;
-
     // Resolve input path
     const inputPath = resolve(input);
     const inputDir = dirname(inputPath);
@@ -176,96 +163,69 @@ program
       console.log(`Processing: ${inputPath}`);
     }
 
-    // Preprocess
-    const context: PreprocessorContext = {
-      config,
-      mermaidRenderer,
-      plantumlRenderer,
-      basePath: process.cwd(),
-      fileDir: inputDir,
-    };
-
-    let processed: string;
-    try {
-      processed = await preprocess(markdown, context);
-    } catch (err) {
-      console.error('Error during preprocessing:');
-      console.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
-
-    // Write temp files
-    const timestamp = Date.now();
-    const tmpMd = join(tmpdir(), `marp-${timestamp}.md`);
-    const tmpEngine = join(tmpdir(), `engine-${timestamp}.js`);
-
-    await writeFile(tmpMd, processed);
-    await writeFile(tmpEngine, getEngine(true));
-
     // Determine output path
     const format = config.export.format;
     const outputPath =
       (options.output as string) ||
       join(inputDir, `${basename(input, extname(input))}.${format}`);
 
-    // Build marp-cli command
-    const isUnsafe = config.mode === 'unsafe';
-    const cmdParts = [
-      'npx',
-      '-y',
-      '@marp-team/marp-cli@latest',
-      `--engine "${tmpEngine}"`,
-      `-o "${outputPath}"`,
-    ];
+    // Resolve theme directory
+    const resolvedThemeDir = config.themeDir ? resolve(config.themeDir) : undefined;
 
-    // Add format-specific options
-    if (format === 'pdf') {
-      cmdParts.push('--pdf');
-    } else if (format === 'pptx') {
-      cmdParts.push('--pptx');
+    // Create export config from marp config
+    const exportConfig = createExportConfigFromMarpConfig(
+      { ...config, themeDir: resolvedThemeDir },
+      outputPath,
+    );
+
+    // Add pass-through args
+    if (passThrough.length > 0) {
+      exportConfig.additionalMarpArgs = [
+        ...(exportConfig.additionalMarpArgs || []),
+        ...passThrough,
+      ];
     }
 
-    // Only enable dangerous flags in unsafe mode
-    if (isUnsafe) {
-      cmdParts.push('--html');
-      cmdParts.push('--allow-local-files');
-    }
+    // Create diagram renderers
+    const mermaidRenderer = config.diagrams.mermaid.enabled
+      ? new MermaidCliRenderer({
+          cliPath: config.diagrams.mermaid.cliPath,
+          theme: config.diagrams.mermaid.theme,
+        })
+      : undefined;
 
-    // Theme directory
-    if (config.themeDir) {
-      cmdParts.push(`--theme-set "${resolve(config.themeDir)}"`);
-    }
+    const plantumlRenderer =
+      config.diagrams.plantuml.enabled && config.diagrams.plantuml.jarPath
+        ? new PlantUMLRenderer({
+            jarPath: config.diagrams.plantuml.jarPath,
+            javaPath: config.diagrams.plantuml.javaPath,
+          })
+        : undefined;
 
-    // User's additional pass-through args from config
-    if (config.marpCliArgs) {
-      cmdParts.push(...config.marpCliArgs);
-    }
+    // Create path resolver for file operations
+    // Use input directory as root for resolving relative paths
+    const pathResolver = new NodePathResolver({ rootPath: inputDir });
 
-    // CLI pass-through args
-    cmdParts.push(...passThrough);
+    // Create export context
+    const exportContext: ExportContext = {
+      pathResolver,
+      fileDir: '', // Relative to inputDir (which is already the file's directory)
+      getMimeType: (path) => mimes.getType(path),
+      mermaidRenderer,
+      plantumlRenderer,
+      async: false, // CLI uses sync execution
+      onProgress: verbose ? (msg) => console.log(msg) : undefined,
+      onError: (err) => console.error(err.message),
+    };
 
-    // Input file (preprocessed)
-    cmdParts.push(`"${tmpMd}"`);
+    // Execute export
+    const result = await exportPresentation(markdown, exportConfig, exportContext);
 
-    const cmd = cmdParts.join(' ');
-
-    if (verbose) {
-      console.log('Executing:', cmd);
-    }
-
-    try {
-      execSync(cmd, { stdio: 'inherit' });
-      console.log(`Exported: ${outputPath}`);
-    } catch (err) {
-      console.error('marp-cli failed');
-      if (err instanceof Error && 'status' in err) {
-        process.exit((err as { status: number }).status || 1);
-      }
+    if (result.success) {
+      console.log(`Exported: ${result.outputPath}`);
+    } else {
+      console.error('Export failed');
       process.exit(1);
-    } finally {
-      // Cleanup temp files
-      await unlink(tmpMd).catch(() => {});
-      await unlink(tmpEngine).catch(() => {});
     }
   });
 

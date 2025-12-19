@@ -1,4 +1,5 @@
 import mermaid from 'mermaid';
+import type { DiagramRenderer } from '../core/diagrams/types';
 
 export type MermaidTheme =
   | 'default'
@@ -27,8 +28,9 @@ interface MermaidBlockMatch {
 /**
  * Manages Mermaid diagram rendering with caching.
  * SVGs are cached by content hash to avoid re-rendering unchanged diagrams.
+ * Implements DiagramRenderer interface for use with core preprocessor.
  */
-export class MermaidCacheManager {
+export class MermaidCacheManager implements DiagramRenderer {
   private cache = new Map<string, string>();
   private initialized = false;
   private renderContainer: HTMLElement | null = null;
@@ -38,8 +40,9 @@ export class MermaidCacheManager {
   /**
    * Initialize Mermaid with current configuration.
    * Must be called before rendering.
+   * Returns Promise for DiagramRenderer interface compatibility.
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     if (this.initialized) return;
 
     mermaid.initialize({
@@ -110,7 +113,7 @@ export class MermaidCacheManager {
       return this.cache.get(key)!;
     }
 
-    this.initialize();
+    await this.initialize();
     this.ensureRenderContainer();
 
     try {
