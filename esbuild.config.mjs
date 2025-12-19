@@ -10,6 +10,56 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = process.argv[2] === 'production';
 
+// Build markdownItPlugins.ts to a standalone JS string for use in marp-cli engine
+async function buildMarkdownItPluginsString() {
+  const result = await esbuild.build({
+    entryPoints: ['src/markdownItPlugins.ts'],
+    bundle: true,
+    write: false,
+    format: 'cjs',
+    minify: false, // Keep readable for debugging
+    target: 'es2018',
+  });
+
+  let code = result.outputFiles[0].text;
+
+  // The CJS output exports containerPlugin and markPlugin
+  // We need to extract them as standalone functions for the engine
+  // Replace the exports with variable declarations that the engine can use
+  code = code
+    .replace(/module\.exports\s*=\s*__toCommonJS\(.*?\);?/, '')
+    .replace(/__export\(markdownItPlugins_exports,\s*\{[^}]+\}\);/, '');
+
+  // Add assignments to make the functions available as generic_container_plugin and mark_plugin
+  // Note: marpDirectivePlugin is NOT included - it's handled as a pre-processor
+  // because Marp parses directives from raw markdown before markdown-it runs
+  code += `
+var generic_container_plugin = genericContainerPlugin;
+var mark_plugin = markPlugin;
+`;
+
+  return code;
+}
+
+// Plugin to inject the compiled markdown-it plugins as a string
+const markdownItPluginsPlugin = {
+  name: 'markdown-it-plugins-string',
+  setup(build) {
+    build.onResolve({ filter: /^markdown-it-plugins-string$/ }, args => ({
+      path: args.path,
+      namespace: 'markdown-it-plugins-string',
+    }));
+
+    build.onLoad({ filter: /.*/, namespace: 'markdown-it-plugins-string' }, async () => {
+      const pluginsCode = await buildMarkdownItPluginsString();
+      return {
+        contents: `export const markdownItPluginsCode = ${JSON.stringify(pluginsCode)};`,
+        loader: 'js',
+      };
+    });
+  },
+};
+
 const context = await esbuild.context({
   banner: {
     js: banner,
@@ -41,6 +91,7 @@ const context = await esbuild.context({
   treeShaking: true,
   outfile: 'main.js',
   minify: prod,
+  plugins: [markdownItPluginsPlugin],
 });
 
 if (prod) {

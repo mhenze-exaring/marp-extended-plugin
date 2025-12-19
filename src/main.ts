@@ -1,28 +1,55 @@
 import { FileSystemAdapter, Notice, Plugin, TFile } from 'obsidian';
 import { MARP_DEFAULT_SETTINGS, MarpPluginSettings } from './settings';
 import { MARP_PREVIEW_VIEW_TYPE, PreviewView } from './preview';
+import { MARP_DECK_VIEW_TYPE, DeckView } from './deckView';
 import { MarpSettingTab } from './settingTab';
 import { readdir, readFile } from 'fs/promises';
 import { marp } from './marp';
 import { existsSync } from 'fs';
 import { join, normalize } from 'path';
+import {
+  MermaidCacheManager,
+  destroyMermaidCacheManager,
+} from './mermaidCache';
 
 export default class MarpPlugin extends Plugin {
   settings: MarpPluginSettings;
+  mermaidCache: MermaidCacheManager;
 
   async onload() {
     await this.loadSettings();
+
+    // Initialize Mermaid cache manager
+    this.mermaidCache = new MermaidCacheManager({
+      theme: this.settings.mermaidTheme,
+    });
+
+    // Ribbon icon for existing preview
     this.addRibbonIcon('presentation', 'Marp: Open Preview', async _ => {
       const file = this.app.workspace.activeEditor?.file;
       if (!file)
         return new Notice(
-          'Please select the tab for the file you want to view in Marp , and then click this button again.',
+          'Please select the tab for the file you want to view in Marp, and then click this button again.',
           10000,
         );
       await this.activateView(file);
     });
+
+    // Ribbon icon for deck preview
+    this.addRibbonIcon('layers', 'Marp: Open Deck Preview', async _ => {
+      const file = this.app.workspace.activeEditor?.file;
+      if (!file)
+        return new Notice(
+          'Please select the tab for the file you want to view in Marp, and then click this button again.',
+          10000,
+        );
+      await this.activateDeckView(file);
+    });
+
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const that = this;
+
+    // Command for existing preview
     this.addCommand({
       id: 'open-preview',
       name: 'Open Preview',
@@ -32,9 +59,26 @@ export default class MarpPlugin extends Plugin {
         await that.activateView(file);
       },
     });
+
+    // Command for deck preview
+    this.addCommand({
+      id: 'open-deck-preview',
+      name: 'Open Deck Preview',
+      async editorCallback(_editor, ctx) {
+        const file = ctx.file;
+        if (!file) return;
+        await that.activateDeckView(file);
+      },
+    });
+
+    // Register views
     this.registerView(
       MARP_PREVIEW_VIEW_TYPE,
-      leaf => new PreviewView(leaf, this.settings),
+      leaf => new PreviewView(leaf, this.settings, this.mermaidCache),
+    );
+    this.registerView(
+      MARP_DECK_VIEW_TYPE,
+      leaf => new DeckView(leaf, this.settings, this.mermaidCache),
     );
     this.addSettingTab(new MarpSettingTab(this.app, this));
 
@@ -66,6 +110,19 @@ export default class MarpPlugin extends Plugin {
 
   async onunload() {
     this.app.workspace.detachLeavesOfType(MARP_PREVIEW_VIEW_TYPE);
+    this.app.workspace.detachLeavesOfType(MARP_DECK_VIEW_TYPE);
+
+    // Clean up Mermaid cache
+    this.mermaidCache.destroy();
+    destroyMermaidCacheManager();
+  }
+
+  /**
+   * Called when Mermaid theme setting changes.
+   * Updates cache manager and clears cached SVGs.
+   */
+  onMermaidThemeChange() {
+    this.mermaidCache.setTheme(this.settings.mermaidTheme);
   }
 
   async activateView(file: TFile) {
@@ -84,6 +141,26 @@ export default class MarpPlugin extends Plugin {
       const leaf = this.app.workspace.getLeaf('tab');
       await leaf.setViewState({
         type: MARP_PREVIEW_VIEW_TYPE,
+        active: true,
+        state: { file },
+      });
+    }
+  }
+
+  async activateDeckView(file: TFile) {
+    this.app.workspace.detachLeavesOfType(MARP_DECK_VIEW_TYPE);
+
+    if (this.settings.createNewSplitTab) {
+      const leaf = this.app.workspace.getLeaf('split');
+      await leaf.setViewState({
+        type: MARP_DECK_VIEW_TYPE,
+        active: true,
+        state: { file },
+      });
+    } else {
+      const leaf = this.app.workspace.getLeaf('tab');
+      await leaf.setViewState({
+        type: MARP_DECK_VIEW_TYPE,
         active: true,
         state: { file },
       });
