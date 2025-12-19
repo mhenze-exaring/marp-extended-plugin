@@ -1,12 +1,22 @@
 {
 	"name": "obsidian-marp-plugin",
 	"version": "1.5.0",
-	"description": "Plugin for using Marp on Obsidian",
+	"description": "Plugin for using Marp on Obsidian, with CLI support",
 	"main": "main.js",
+	"bin": {
+		"marp-extended": "./dist/cli/index.js"
+	},
+	"exports": {
+		".": "./main.js",
+		"./cli": "./dist/cli/index.js",
+		"./core": "./dist/core/index.js"
+	},
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"build:quick": "node esbuild.config.mjs production",
+		"build:cli": "node esbuild.config.mjs production --cli",
+		"build:all": "npm run build && npm run build:cli",
 		"deploy": "npm run build:quick && mkdir -p /home/mhenze/obsidian/exaring/.obsidian/plugins/marp && cp main.js manifest.json /home/mhenze/obsidian/exaring/.obsidian/plugins/marp/",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"test": "vitest run",
@@ -14,7 +24,12 @@
 	},
 	"keywords": [
 		"obsidian-plugin",
-		"obsidian-md"
+		"obsidian-md",
+		"marp",
+		"presentation",
+		"slides",
+		"mermaid",
+		"plantuml"
 	],
 	"author": "JichouP",
 	"license": "MIT",
@@ -34,6 +49,7 @@
 	},
 	"dependencies": {
 		"@marp-team/marp-core": "^4.0.1",
+		"commander": "^12.1.0",
 		"fix-path": "^4.0.0",
 		"mermaid": "^11.12.2",
 		"mime": "^4.0.1"
