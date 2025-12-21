@@ -56,6 +56,7 @@ export class DeckView extends ItemView {
   // Sync preview state
   private lastSyncedSlideIndex: number = -1;
   private slideBoundaries: number[] = []; // Line numbers where each slide starts
+  private activeSlideStyleEl: HTMLStyleElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -300,6 +301,7 @@ export class DeckView extends ItemView {
 
     // Empty and reinitialize slides container only
     this.slidesContainerEl.empty();
+    this.activeSlideStyleEl = null; // Reset since container was emptied
     this.marpBrowser = browser(this.slidesContainerEl);
 
     let { html, css } = this.marp.render(content);
@@ -413,6 +415,39 @@ export class DeckView extends ItemView {
     return isAtTop;
   }
 
+  // Highlight the active slide with a visual indicator
+  private highlightActiveSlide(slideIndex: number) {
+    // Remove previous highlight
+    const previousActive = this.slidesContainerEl.querySelector(
+      '[data-marp-vscode-slide-wrapper].marp-active-slide',
+    );
+    if (previousActive) {
+      previousActive.classList.remove('marp-active-slide');
+    }
+
+    // Add highlight to current slide
+    const slideEl = this.getSlideElement(slideIndex);
+    if (slideEl) {
+      slideEl.classList.add('marp-active-slide');
+    }
+  }
+
+  // Inject the active slide styles if not already present
+  private ensureActiveSlideStyles() {
+    if (this.activeSlideStyleEl) return;
+
+    this.activeSlideStyleEl = document.createElement('style');
+    this.activeSlideStyleEl.id = '__marp-active-slide-style';
+    this.activeSlideStyleEl.textContent = `
+      [data-marp-vscode-slide-wrapper].marp-active-slide {
+        outline: 3px solid var(--interactive-accent);
+        outline-offset: -3px;
+        border-radius: 4px;
+      }
+    `;
+    this.slidesContainerEl.appendChild(this.activeSlideStyleEl);
+  }
+
   // ===== Sync Preview functionality =====
 
   /**
@@ -468,7 +503,8 @@ export class DeckView extends ItemView {
 
   /**
    * Sync the preview to show the slide at the editor's cursor position.
-   * Only scrolls if the target slide is different and not visible.
+   * Only scrolls if the target slide is different and not at the top.
+   * Always highlights the active slide for visual reference.
    */
   private syncPreviewToEditor(editor: Editor) {
     if (!this.settings.enableSyncPreview) return;
@@ -476,6 +512,12 @@ export class DeckView extends ItemView {
 
     const cursor = editor.getCursor();
     const slideIndex = this.getSlideIndexForLine(cursor.line);
+
+    // Ensure styles are injected
+    this.ensureActiveSlideStyles();
+
+    // Always highlight the active slide (even if we don't scroll)
+    this.highlightActiveSlide(slideIndex);
 
     // Only scroll if we're on a different slide
     if (slideIndex !== this.lastSyncedSlideIndex) {
