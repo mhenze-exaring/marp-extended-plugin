@@ -282,11 +282,6 @@ export class DeckView extends ItemView {
 
     const originContent = await this.app.vault.cachedRead(this.file);
 
-    // Calculate slide boundaries for sync preview
-    this.slideBoundaries = this.calculateSlideBoundaries(originContent);
-    // Note: Do NOT reset lastSyncedSlideIndex here - it would cause unnecessary scrolling
-    // The sync logic already handles slide changes correctly
-
     // Preprocess using core unified pipeline
     const preprocessContext: RenderPreprocessContext = {
       wikilinkResolver: this.createWikilinkResolver(),
@@ -305,6 +300,10 @@ export class DeckView extends ItemView {
     this.marpBrowser = browser(this.slidesContainerEl);
 
     let { html, css } = this.marp.render(content);
+
+    // Extract slide boundaries from Marp's internal token data
+    // This is more robust than parsing --- manually (handles code blocks, mermaid, etc.)
+    this.slideBoundaries = this.extractSlideBoundariesFromMarp();
 
     // Resolve all relative image paths (preview-specific: app:// URLs)
     html = this.resolveHtmlImagePaths(html, fileDir);
@@ -332,6 +331,9 @@ export class DeckView extends ItemView {
 
     // Update Marp browser for custom elements
     this.marpBrowser?.update();
+
+    // Attach click handlers to slides for reverse sync (preview -> editor)
+    this.attachSlideClickHandlers();
 
     // Sync preview to editor cursor position after render completes
     this.syncPreviewAfterRender();
@@ -415,6 +417,86 @@ export class DeckView extends ItemView {
     return isAtTop;
   }
 
+  // Handle click on a slide - navigate editor to that slide
+  private handleSlideClick(slideIndex: number) {
+    if (!this.file) return;
+    if (!this.settings.enableSyncPreview) return;
+
+    // Immediately highlight the clicked slide and update sync state
+    this.ensureActiveSlideStyles();
+    this.highlightActiveSlide(slideIndex);
+    this.lastSyncedSlideIndex = slideIndex;
+
+    // Find the editor for our file
+    const leaves = this.app.workspace.getLeavesOfType('markdown');
+    for (const leaf of leaves) {
+      const view = leaf.view;
+      if (
+        'file' in view &&
+        (view as { file: TFile | null }).file?.path === this.file.path
+      ) {
+        if ('editor' in view) {
+          const editor = (view as { editor: Editor }).editor;
+
+          // Get first non-separator line number for this slide
+          const lineNumber = 1 + (this.slideBoundaries[slideIndex] ?? 0);
+
+          // WORKAROUND to scroll to the top of the slide in the editor
+          // virtually scroll to the bottom of the editor, so that setting
+          // the cursor position scrolls up again to be at the top of the editor
+          editor.scrollTo(null, 10000000)
+          editor.refresh();
+
+          // Set the cursor and scroll (back) to the starting line of the slide
+          editor.setCursor({ line: lineNumber, ch: 0 });
+          editor.refresh();
+
+          // Focus the editor
+          leaf.view.containerEl.focus();
+          editor.focus();
+
+          // do it twice, to correct occasional misplacing *sigh*
+          editor.setCursor({ line: lineNumber, ch: 0 });
+          editor.refresh();
+          break;
+        }
+      }
+    }
+  }
+
+  // Attach click handlers to all slides
+  private attachSlideClickHandlers() {
+    const slides = this.slidesContainerEl.querySelectorAll(
+      '[data-marp-vscode-slide-wrapper]',
+    );
+    slides.forEach((slide, index) => {
+      // Use pointer cursor to indicate clickability
+      (slide as HTMLElement).style.cursor = 'pointer';
+
+      // Add click handler
+      slide.addEventListener('click', (e) => {
+        // Don't trigger if clicking on a link or interactive element
+        const target = e.target as HTMLElement;
+        if (target.closest('a, button, input, textarea, select')) {
+          return;
+        }
+
+        // Don't trigger if user is making a text selection
+        const selection = window.getSelection();
+        if (selection && selection.toString().length > 0) {
+          return;
+        }
+
+        // Don't trigger if this slide is already active
+        if (index === this.lastSyncedSlideIndex) {
+          return;
+        }
+
+        this.handleSlideClick(index);
+      });
+    });
+  }
+
   // Highlight the active slide with a visual indicator
   private highlightActiveSlide(slideIndex: number) {
     // Remove previous highlight
@@ -451,38 +533,43 @@ export class DeckView extends ItemView {
   // ===== Sync Preview functionality =====
 
   /**
-   * Calculate slide boundaries from markdown content.
-   * Slides are separated by `---` on a line by itself (after frontmatter).
+   * Extract slide boundaries from Marp's internal token data after render.
+   * This is more robust than manual --- parsing as it handles code blocks,
+   * mermaid diagrams, and other edge cases correctly.
    */
-  private calculateSlideBoundaries(content: string): number[] {
-    const lines = content.split('\n');
-    const boundaries: number[] = [0]; // First slide always starts at line 0
+  private extractSlideBoundariesFromMarp(): number[] {
+    // Access Marp's protected lastSlideTokens after render()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const slideTokens = (this.marp as any).lastSlideTokens as any[] | undefined;
 
-    let inFrontmatter = false;
-    let frontmatterEnded = false;
+    if (!slideTokens || slideTokens.length === 0) {
+      return [0]; // Fallback: single slide starting at line 0
+    }
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+    const boundaries: number[] = [];
 
-      // Handle frontmatter (starts and ends with ---)
-      if (i === 0 && line === '---') {
-        inFrontmatter = true;
-        continue;
+    for (const tokens of slideTokens) {
+      // Each slide's tokens array - find the opening token with map info
+      if (Array.isArray(tokens) && tokens.length > 0) {
+        // The first token usually has the slide's starting line
+        const firstToken = tokens[0];
+        if (firstToken?.map && Array.isArray(firstToken.map)) {
+          boundaries.push(firstToken.map[0]); // Start line of this slide
+        } else {
+          // Fallback: look for any token with map info
+          for (const token of tokens) {
+            if (token?.map && Array.isArray(token.map)) {
+              boundaries.push(token.map[0]);
+              break;
+            }
+          }
+        }
       }
+    }
 
-      if (inFrontmatter && line === '---') {
-        inFrontmatter = false;
-        frontmatterEnded = true;
-        continue;
-      }
-
-      // Skip content inside frontmatter
-      if (inFrontmatter) continue;
-
-      // After frontmatter, --- marks a new slide
-      if (frontmatterEnded && line === '---') {
-        boundaries.push(i + 1); // Next line starts the new slide
-      }
+    // Ensure we have at least slide 0
+    if (boundaries.length === 0) {
+      return [0];
     }
 
     return boundaries;
