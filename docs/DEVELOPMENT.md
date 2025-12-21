@@ -16,14 +16,17 @@ For CLI features:
 
 ```bash
 # Clone repository
-git clone https://github.com/JichouP/obsidian-marp-plugin.git
-cd obsidian-marp-plugin
+git clone https://github.com/mhenze-exaring/marp-extended-plugin.git
+cd marp-extended-plugin
 
 # Install dependencies
 npm install
 
-# Build Obsidian plugin
-npm run build:quick
+# Build plugin
+npm run build
+
+# Deploy plugin to Obsidian
+npm run deploy
 
 # Build CLI
 npm run build:cli
@@ -80,7 +83,7 @@ npm run deploy
 
 By default, it copies to:
 ```
-/home/mhenze/obsidian/exaring/.obsidian/plugins/marp/
+dev-vault/.obsidian/plugins/marp-extended/
 ```
 
 To change the target vault, edit `package.json`:
@@ -88,7 +91,7 @@ To change the target vault, edit `package.json`:
 ```json
 {
   "scripts": {
-    "deploy": "npm run build:quick && cp -r dist/obsidian/. /path/to/your/vault/.obsidian/plugins/marp/"
+    "deploy": "npm run build:quick && cp -r dist/obsidian/. dev-vault/.obsidian/plugins/marp-extended/"
   }
 }
 ```
@@ -104,12 +107,12 @@ After deploying, restart Obsidian or use the "Reload app without saving" command
 
 2. Create the plugin folder in your vault:
    ```bash
-   mkdir -p /path/to/vault/.obsidian/plugins/marp
+   mkdir -p /path/to/vault/.obsidian/plugins/marp-extended
    ```
 
 3. Copy the built files:
    ```bash
-   cp dist/obsidian/* /path/to/vault/.obsidian/plugins/marp/
+   cp dist/obsidian/* /path/to/vault/.obsidian/plugins/marp-extended/
    ```
 
 4. Enable the plugin in Obsidian Settings → Community Plugins

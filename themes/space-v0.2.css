@@ -1,0 +1,290 @@
+/* @theme space-v0.2
+   @author Mathias Henze
+   @description Retro Sci-Fi theme extending MEDS v0.2 (Marp Extended Design System)
+   @auto-scaling true
+   @size 16:9 1280px 720px
+   @size 4:3 960px 720px
+*/
+
+/* ============================================================================
+   SPACE THEME v0.2 - Retro Sci-Fi Aesthetic
+   ============================================================================
+   Extends MEDS v0.2 base (meds-reference-v0.2) with:
+   - Poppins/Open Sans/Fira Code typography
+   - Retro sci-fi color palette (space blues, oranges, cyans)
+   - Glow effects and text shadows
+   - Comic narration-style captions
+
+   ARCHITECTURE:
+   - Layer 0: Brand palette (--space-theme-*)
+   - Layer 1: Override MEDS primitives using brand palette
+   - Effects: Brand-specific glow, shadows, components
+
+   No Layer 2/3/4 overrides needed - the MEDS cascade handles everything!
+   ============================================================================ */
+
+@import 'meds-reference-v0.2';
+
+/* Google Fonts - Space Typography */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600&family=Poppins:wght@200;400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+/* ============================================================================
+   LAYER 0: BRAND PALETTE - Space Theme Source Colors
+   ============================================================================
+   These are the brand's source-of-truth colors. All MEDS primitive overrides
+   are calculated/derived from these values.
+   ============================================================================ */
+
+:root {
+  /* ============================================================================
+     LAYER 0: BRAND PRIMITIVES - The ONLY manually defined colors
+     ============================================================================
+     Everything else is calculated from these values.
+     ============================================================================ */
+
+  /* === SPACE BRAND COLORS (source of truth) === */
+  --space-theme-blue: #0088ff;      /* confident */
+  --space-theme-orange: #ff6600;    /* energetic */
+  --space-theme-green: #00cc44;     /* success */
+  --space-theme-amber: #ffaa00;     /* warning */
+  --space-theme-cyan: #2bfffd;      /* calm */
+  --space-theme-red: #e53935;       /* danger */
+  --space-theme-gold: #d4af37;      /* premium */
+  --space-theme-purple: #9c27b0;    /* premium-soft */
+
+  /* === TYPOGRAPHY === */
+  --font-family-heading: 'Poppins', system-ui, sans-serif;
+  --font-family-body: 'Open Sans', system-ui, sans-serif;
+  --font-family-mono: 'Fira Code', 'Consolas', monospace;
+
+  /* ============================================================================
+     LAYER 1: CALCULATED PALETTE - All derived from brand primitives
+     ============================================================================ */
+
+  /* === NEUTRAL SCALE (blue undertone for space feel) === */
+  /* Base: mix brand blue into neutrals for cohesive space aesthetic */
+  --dark-neutral-0: color-mix(in srgb, var(--space-theme-blue) 3%, hsl(220, 20%, 3%));
+  --dark-neutral-5: color-mix(in srgb, var(--space-theme-blue) 3%, hsl(220, 18%, 6%));
+  --dark-neutral-10: color-mix(in srgb, var(--space-theme-blue) 3%, hsl(220, 16%, 10%));
+  --dark-neutral-15: color-mix(in srgb, var(--space-theme-blue) 2%, hsl(220, 14%, 14%));
+  --dark-neutral-20: color-mix(in srgb, var(--space-theme-blue) 2%, hsl(220, 12%, 18%));
+  --dark-neutral-30: color-mix(in srgb, var(--space-theme-blue) 2%, hsl(220, 10%, 28%));
+  --dark-neutral-40: color-mix(in srgb, var(--space-theme-blue) 1%, hsl(220, 8%, 38%));
+  --dark-neutral-50: hsl(225, 10%, 50%);
+  --dark-neutral-60: hsl(225, 8%, 60%);
+  --dark-neutral-70: hsl(225, 8%, 70%);
+  --dark-neutral-80: hsl(225, 10%, 82%);
+  --dark-neutral-90: hsl(225, 15%, 90%);
+  --dark-neutral-100: hsl(225, 25%, 97%);
+
+  --light-neutral-100: hsl(225, 30%, 98%);
+  --light-neutral-95: hsl(225, 25%, 95%);
+  --light-neutral-90: hsl(225, 20%, 92%);
+  --light-neutral-85: hsl(225, 18%, 88%);
+  --light-neutral-75: hsl(225, 15%, 78%);
+  --light-neutral-60: hsl(225, 12%, 60%);
+  --light-neutral-50: hsl(225, 10%, 50%);
+  --light-neutral-40: hsl(225, 12%, 40%);
+  --light-neutral-30: hsl(225, 15%, 30%);
+  --light-neutral-20: hsl(225, 18%, 20%);
+  --light-neutral-10: hsl(225, 22%, 12%);
+  --light-neutral-5: hsl(225, 25%, 8%);
+
+  /* === MOOD COLORS - DARK MODE (calculated from brand) === */
+  /* Primary: direct brand color */
+  /* Soft: darkened for subtlety */
+  --dark-confident: var(--space-theme-blue);
+  --dark-confident-soft: color-mix(in srgb, var(--space-theme-blue) 70%, black);
+
+  --dark-energetic: var(--space-theme-orange);
+  --dark-energetic-soft: color-mix(in srgb, var(--space-theme-orange) 65%, black);
+
+  --dark-success: var(--space-theme-green);
+  --dark-success-soft: color-mix(in srgb, var(--space-theme-green) 60%, black);
+
+  --dark-warning: var(--space-theme-amber);
+  --dark-warning-soft: color-mix(in srgb, var(--space-theme-amber) 65%, black);
+
+  --dark-danger: var(--space-theme-red);
+  --dark-danger-soft: color-mix(in srgb, var(--space-theme-red) 70%, black);
+
+  --dark-premium: var(--space-theme-gold);
+  --dark-premium-soft: var(--space-theme-purple);
+
+  --dark-calm: var(--space-theme-cyan);
+  --dark-calm-soft: color-mix(in srgb, var(--space-theme-cyan) 55%, black);
+
+  /* === MOOD COLORS - LIGHT MODE (calculated from brand) === */
+  /* Primary: darkened for readability on light backgrounds */
+  /* Soft: slightly lighter than primary */
+  --light-confident: color-mix(in srgb, var(--space-theme-blue) 80%, black);
+  --light-confident-soft: color-mix(in srgb, var(--space-theme-blue) 90%, black);
+
+  --light-energetic: color-mix(in srgb, var(--space-theme-orange) 75%, black);
+  --light-energetic-soft: color-mix(in srgb, var(--space-theme-orange) 85%, black);
+
+  --light-success: color-mix(in srgb, var(--space-theme-green) 70%, black);
+  --light-success-soft: color-mix(in srgb, var(--space-theme-green) 80%, black);
+
+  --light-warning: color-mix(in srgb, var(--space-theme-amber) 75%, black);
+  --light-warning-soft: color-mix(in srgb, var(--space-theme-amber) 85%, black);
+
+  --light-danger: color-mix(in srgb, var(--space-theme-red) 85%, black);
+  --light-danger-soft: color-mix(in srgb, var(--space-theme-red) 95%, black);
+
+  --light-premium: color-mix(in srgb, var(--space-theme-gold) 75%, black);
+  --light-premium-soft: color-mix(in srgb, var(--space-theme-purple) 85%, black);
+
+  --light-calm: color-mix(in srgb, var(--space-theme-cyan) 55%, black);
+  --light-calm-soft: color-mix(in srgb, var(--space-theme-cyan) 65%, black);
+
+  /* === MOOD BACKGROUNDS - DARK (calculated from brand) === */
+  /* Start: subtle tint of mood color */
+  /* End: darker, less saturated */
+  --dark-bg-confident-start: color-mix(in srgb, var(--space-theme-blue) 12%, hsl(220, 20%, 6%));
+  --dark-bg-confident-end: color-mix(in srgb, var(--space-theme-blue) 6%, hsl(220, 15%, 4%));
+
+  --dark-bg-energetic-start: color-mix(in srgb, var(--space-theme-orange) 10%, hsl(220, 20%, 6%));
+  --dark-bg-energetic-end: color-mix(in srgb, var(--space-theme-orange) 5%, hsl(220, 15%, 4%));
+
+  --dark-bg-success-start: color-mix(in srgb, var(--space-theme-green) 10%, hsl(220, 20%, 5%));
+  --dark-bg-success-end: color-mix(in srgb, var(--space-theme-green) 5%, hsl(220, 15%, 3%));
+
+  --dark-bg-warning-start: color-mix(in srgb, var(--space-theme-amber) 10%, hsl(220, 20%, 6%));
+  --dark-bg-warning-end: color-mix(in srgb, var(--space-theme-amber) 5%, hsl(220, 15%, 4%));
+
+  --dark-bg-danger-start: color-mix(in srgb, var(--space-theme-red) 12%, hsl(220, 20%, 6%));
+  --dark-bg-danger-end: color-mix(in srgb, var(--space-theme-red) 6%, hsl(220, 15%, 4%));
+
+  --dark-bg-premium-start: color-mix(in srgb, var(--space-theme-purple) 10%, hsl(220, 15%, 5%));
+  --dark-bg-premium-end: color-mix(in srgb, var(--space-theme-purple) 5%, hsl(220, 10%, 3%));
+
+  --dark-bg-calm-start: color-mix(in srgb, var(--space-theme-cyan) 10%, hsl(220, 20%, 5%));
+  --dark-bg-calm-end: color-mix(in srgb, var(--space-theme-cyan) 5%, hsl(220, 15%, 3%));
+
+  /* === MOOD BACKGROUNDS - LIGHT (calculated from brand) === */
+  /* Start: very subtle tint */
+  /* End: slightly stronger tint */
+  --light-bg-confident-start: color-mix(in srgb, var(--space-theme-blue) 3%, white);
+  --light-bg-confident-end: color-mix(in srgb, var(--space-theme-blue) 8%, white);
+
+  --light-bg-energetic-start: color-mix(in srgb, var(--space-theme-orange) 3%, white);
+  --light-bg-energetic-end: color-mix(in srgb, var(--space-theme-orange) 8%, white);
+
+  --light-bg-success-start: color-mix(in srgb, var(--space-theme-green) 3%, white);
+  --light-bg-success-end: color-mix(in srgb, var(--space-theme-green) 7%, white);
+
+  --light-bg-warning-start: color-mix(in srgb, var(--space-theme-amber) 4%, white);
+  --light-bg-warning-end: color-mix(in srgb, var(--space-theme-amber) 10%, white);
+
+  --light-bg-danger-start: color-mix(in srgb, var(--space-theme-red) 3%, white);
+  --light-bg-danger-end: color-mix(in srgb, var(--space-theme-red) 7%, white);
+
+  --light-bg-premium-start: color-mix(in srgb, var(--space-theme-purple) 2%, white);
+  --light-bg-premium-end: color-mix(in srgb, var(--space-theme-purple) 6%, white);
+
+  --light-bg-calm-start: color-mix(in srgb, var(--space-theme-cyan) 3%, white);
+  --light-bg-calm-end: color-mix(in srgb, var(--space-theme-cyan) 7%, white);
+
+  /* === SYNTAX HIGHLIGHTING - DARK (calculated from brand) === */
+  --dark-syntax-keyword: hsl(330, 70%, 65%);  /* pink - no brand equivalent, keep MEDS default */
+  --dark-syntax-string: var(--space-theme-green);
+  --dark-syntax-number: var(--space-theme-orange);
+  --dark-syntax-title: var(--space-theme-blue);
+  --dark-syntax-variable: var(--space-theme-cyan);
+  --dark-syntax-builtin: color-mix(in srgb, var(--space-theme-cyan) 80%, var(--space-theme-green));
+  --dark-syntax-attribute: var(--space-theme-amber);
+  --dark-syntax-addition-bg: var(--space-theme-green);
+  --dark-syntax-deletion-bg: var(--space-theme-red);
+
+  /* === SYNTAX HIGHLIGHTING - LIGHT (calculated from brand) === */
+  --light-syntax-keyword: hsl(330, 65%, 40%);  /* pink - no brand equivalent, keep MEDS default */
+  --light-syntax-string: color-mix(in srgb, var(--space-theme-green) 70%, black);
+  --light-syntax-number: color-mix(in srgb, var(--space-theme-orange) 75%, black);
+  --light-syntax-title: color-mix(in srgb, var(--space-theme-blue) 80%, black);
+  --light-syntax-variable: color-mix(in srgb, var(--space-theme-cyan) 55%, black);
+  --light-syntax-builtin: color-mix(in srgb, var(--space-theme-cyan) 55%, black);
+  --light-syntax-attribute: color-mix(in srgb, var(--space-theme-amber) 75%, black);
+  --light-syntax-addition-bg: color-mix(in srgb, var(--space-theme-green) 70%, black);
+  --light-syntax-deletion-bg: color-mix(in srgb, var(--space-theme-red) 85%, black);
+}
+
+/* ============================================================================
+   BRAND-SPECIFIC EFFECTS & COMPONENTS
+   ============================================================================
+   These are space theme-specific visual treatments that don't exist in MEDS
+   or need brand-specific styling. Uses semantic tokens from MEDS cascade.
+   ============================================================================ */
+
+/* Space-specific heading styles with glow effects */
+h1 {
+  text-shadow: var(--heading-shadow);
+}
+
+h2 {
+  color: var(--accent-soft);
+  text-shadow: 0 0 15px color-mix(in srgb, var(--confident) var(--glow-alpha), transparent);
+}
+
+h3 {
+  color: var(--warning);
+}
+
+h1 strong, h2 strong, h3 strong {
+  color: var(--success);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--success) var(--glow-alpha), transparent);
+}
+
+/* Light mode: remove glow effects */
+.light h2 {
+  text-shadow: none;
+}
+
+.light h1 strong,
+.light h2 strong,
+.light h3 strong {
+  text-shadow: none;
+}
+
+/* Space-specific code block styling */
+pre {
+  background: color-mix(in srgb, var(--dark-neutral-5) 80%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--confident) 10%, transparent);
+}
+
+.light pre {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Space-specific blockquote styling */
+.light blockquote {
+  font-weight: var(--font-weight-medium);
+  color: var(--fg-secondary);
+}
+
+/* Space-specific quote slide styling */
+.light.quote blockquote {
+  font-weight: var(--font-weight-medium);
+}
+
+/* Space-specific hr with glow */
+hr {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--confident) 50%, transparent);
+}
+
+.light hr {
+  box-shadow: none;
+}
+
+/* Space-specific caption styling (comic narration box) */
+/* Uses --accent which adapts to mood automatically */
+.caption {
+  color: var(--fg);
+  background: var(--surface-glass);
+  backdrop-filter: blur(8px);
+  padding: var(--space-md) var(--space-lg);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+

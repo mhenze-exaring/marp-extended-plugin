@@ -1,0 +1,1759 @@
+/* @theme meds-reference-v0.2
+   @author Claude & Mathias Henze
+   @description MEDS v2 (Marp Extended Design System) - Reference base theme
+   @auto-scaling true
+   @size 16:9 1280px 720px
+   @size 4:3 960px 720px
+*/
+
+/* ============================================================================
+   MARP EXTENDED DESIGN SYSTEM v0.2 (MEDS) - REFERENCE THEME
+   ============================================================================
+
+   ARCHITECTURE: Hybrid 1+3 (Explicit Palette + Computed Effects)
+
+   Layer 1: Primitives (:root)
+     - Raw values only, no var() references
+     - --dark-* and --light-* prefixed colors
+     - Typography, spacing, radii, transitions
+
+   Layer 2: Mode (section/section.dark/.dark and section.light/.light)
+     - Maps prefixed palette to unprefixed tokens
+     - Sets effect parameters (--glow-alpha, --shadow-alpha, etc.)
+
+   Layer 3: Semantic + Computed (section)
+     - Role-based tokens (--accent, --heading-color)
+     - Computed effects using color-mix() and mode parameters
+
+   Layer 4: Mood (section.{mood}/.{mood})
+     - Single definition per mood (works for both modes!)
+     - Overrides accent tokens only
+
+   Layer 5: Components (component class rules)
+     - Component classes using semantic tokens directly
+     - Enables CSS inheritance for nested mode/mood changes
+
+   Layer 6: Brand (@import 'meds-reference-v2' + overrides)
+     - Override primitives and optionally semantic defaults
+
+   DEFAULT: Dark mode
+   LIGHT MODE: Add "light" class (e.g., <!-- _class: light --> or <!-- _class: light confident -->)
+
+   KEY BENEFIT: Single mood definition works for ALL modes!
+   ============================================================================ */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* Global box-sizing for consistent sizing across browsers */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ============================================================================
+   LAYER 1: PRIMITIVES
+   Raw values only. No var() references. No semantic meaning.
+   ============================================================================ */
+
+:root {
+  /* === TYPOGRAPHY === */
+  --font-family-heading: 'Inter', system-ui, sans-serif;
+  --font-family-body: 'Inter', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --font-size-xs: 14px;
+  --font-size-sm: 18px;
+  --font-size-md: 24px;
+  --font-size-lg: 30px;
+  --font-size-xl: 38px;
+  --font-size-2xl: 47px;
+  --font-size-3xl: 59px;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+
+  /* === SPACING === */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* === BORDER RADIUS === */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* === TRANSITIONS === */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* === DARK PALETTE: NEUTRALS === */
+  --dark-neutral-0: hsl(220, 20%, 4%);
+  --dark-neutral-5: hsl(220, 18%, 8%);
+  --dark-neutral-10: hsl(220, 16%, 12%);
+  --dark-neutral-15: hsl(220, 14%, 16%);
+  --dark-neutral-20: hsl(220, 12%, 20%);
+  --dark-neutral-30: hsl(220, 10%, 30%);
+  --dark-neutral-40: hsl(220, 8%, 40%);
+  --dark-neutral-50: hsl(220, 6%, 50%);
+  --dark-neutral-60: hsl(220, 6%, 60%);
+  --dark-neutral-70: hsl(220, 6%, 70%);
+  --dark-neutral-80: hsl(220, 8%, 80%);
+  --dark-neutral-90: hsl(220, 10%, 90%);
+  --dark-neutral-100: hsl(220, 20%, 98%);
+
+  /* === DARK PALETTE: MOOD COLORS === */
+  --dark-confident: hsl(215, 80%, 55%);
+  --dark-confident-soft: hsl(215, 60%, 45%);
+  --dark-energetic: hsl(25, 95%, 55%);
+  --dark-energetic-soft: hsl(25, 80%, 45%);
+  --dark-success: hsl(145, 70%, 45%);
+  --dark-success-soft: hsl(145, 50%, 35%);
+  --dark-warning: hsl(45, 95%, 50%);
+  --dark-warning-soft: hsl(45, 80%, 40%);
+  --dark-danger: hsl(0, 75%, 50%);
+  --dark-danger-soft: hsl(0, 60%, 40%);
+  --dark-premium: hsl(45, 80%, 55%);
+  --dark-premium-soft: hsl(280, 40%, 45%);
+  --dark-calm: hsl(175, 50%, 45%);
+  --dark-calm-soft: hsl(175, 35%, 35%);
+
+  /* === DARK PALETTE: MOOD BACKGROUNDS === */
+  --dark-bg-confident-start: hsl(215, 35%, 12%);
+  --dark-bg-confident-end: hsl(215, 30%, 8%);
+  --dark-bg-energetic-start: hsl(15, 30%, 12%);
+  --dark-bg-energetic-end: hsl(20, 25%, 8%);
+  --dark-bg-success-start: hsl(145, 30%, 10%);
+  --dark-bg-success-end: hsl(150, 25%, 6%);
+  --dark-bg-warning-start: hsl(40, 30%, 12%);
+  --dark-bg-warning-end: hsl(35, 25%, 8%);
+  --dark-bg-danger-start: hsl(0, 35%, 12%);
+  --dark-bg-danger-end: hsl(355, 30%, 8%);
+  --dark-bg-premium-start: hsl(260, 20%, 8%);
+  --dark-bg-premium-end: hsl(240, 15%, 4%);
+  --dark-bg-calm-start: hsl(175, 25%, 10%);
+  --dark-bg-calm-end: hsl(180, 20%, 6%);
+
+  /* === LIGHT PALETTE: NEUTRALS === */
+  --light-neutral-100: hsl(220, 20%, 98%);
+  --light-neutral-95: hsl(220, 15%, 95%);
+  --light-neutral-90: hsl(220, 12%, 90%);
+  --light-neutral-85: hsl(220, 10%, 85%);
+  --light-neutral-75: hsl(220, 8%, 75%);
+  --light-neutral-60: hsl(220, 6%, 60%);
+  --light-neutral-50: hsl(220, 6%, 50%);
+  --light-neutral-40: hsl(220, 8%, 40%);
+  --light-neutral-30: hsl(220, 10%, 30%);
+  --light-neutral-20: hsl(220, 15%, 20%);
+  --light-neutral-10: hsl(220, 20%, 15%);
+  --light-neutral-5: hsl(220, 25%, 10%);
+
+  /* === LIGHT PALETTE: MOOD COLORS === */
+  --light-confident: hsl(215, 75%, 45%);
+  --light-confident-soft: hsl(215, 55%, 55%);
+  --light-energetic: hsl(25, 90%, 45%);
+  --light-energetic-soft: hsl(25, 70%, 55%);
+  --light-success: hsl(145, 65%, 35%);
+  --light-success-soft: hsl(145, 45%, 45%);
+  --light-warning: hsl(45, 90%, 40%);
+  --light-warning-soft: hsl(45, 70%, 50%);
+  --light-danger: hsl(0, 70%, 45%);
+  --light-danger-soft: hsl(0, 55%, 55%);
+  --light-premium: hsl(45, 75%, 40%);
+  --light-premium-soft: hsl(280, 35%, 50%);
+  --light-calm: hsl(175, 45%, 35%);
+  --light-calm-soft: hsl(175, 30%, 45%);
+
+  /* === LIGHT PALETTE: MOOD BACKGROUNDS === */
+  --light-bg-confident-start: hsl(215, 30%, 98%);
+  --light-bg-confident-end: hsl(215, 25%, 94%);
+  --light-bg-energetic-start: hsl(25, 40%, 98%);
+  --light-bg-energetic-end: hsl(20, 35%, 94%);
+  --light-bg-success-start: hsl(145, 30%, 97%);
+  --light-bg-success-end: hsl(150, 25%, 93%);
+  --light-bg-warning-start: hsl(45, 50%, 97%);
+  --light-bg-warning-end: hsl(40, 45%, 93%);
+  --light-bg-danger-start: hsl(0, 35%, 98%);
+  --light-bg-danger-end: hsl(355, 30%, 95%);
+  --light-bg-premium-start: hsl(260, 15%, 98%);
+  --light-bg-premium-end: hsl(240, 12%, 94%);
+  --light-bg-calm-start: hsl(175, 25%, 97%);
+  --light-bg-calm-end: hsl(180, 20%, 93%);
+
+  /* === SYNTAX HIGHLIGHTING - DARK === */
+  --dark-syntax-keyword: hsl(330, 70%, 65%);
+  --dark-syntax-string: hsl(145, 70%, 45%);
+  --dark-syntax-number: hsl(25, 95%, 55%);
+  --dark-syntax-title: hsl(215, 80%, 55%);
+  --dark-syntax-variable: hsl(200, 70%, 65%);
+  --dark-syntax-builtin: hsl(175, 50%, 45%);
+  --dark-syntax-attribute: hsl(40, 70%, 60%);
+  --dark-syntax-addition-bg: hsl(145, 70%, 45%);
+  --dark-syntax-deletion-bg: hsl(0, 75%, 50%);
+
+  /* === SYNTAX HIGHLIGHTING - LIGHT === */
+  --light-syntax-keyword: hsl(330, 65%, 40%);
+  --light-syntax-string: hsl(145, 65%, 35%);
+  --light-syntax-number: hsl(25, 90%, 45%);
+  --light-syntax-title: hsl(215, 75%, 45%);
+  --light-syntax-variable: hsl(200, 65%, 40%);
+  --light-syntax-builtin: hsl(175, 45%, 35%);
+  --light-syntax-attribute: hsl(40, 65%, 40%);
+  --light-syntax-addition-bg: hsl(145, 65%, 35%);
+  --light-syntax-deletion-bg: hsl(0, 70%, 45%);
+}
+
+/* ============================================================================
+   LAYER 2: MODE - DARK (Default)
+   Maps prefixed palette to unprefixed. Sets effect parameters.
+   ============================================================================ */
+
+section,
+section.dark,
+.dark {
+  /* === EFFECT PARAMETERS === */
+  --glow-alpha: 15%;
+  --shadow-alpha: 40%;
+  --heading-shadow-alpha: 100%;
+  --border-mix-fg: 25%;
+  --border-subtle-mix-fg: 15%;
+  --border-emphasis-mix: 50%;
+  --stripe-alpha: 3%;
+  --overlay-alpha: 60%;
+  --glass-alpha: 50%;
+
+  /* === SCALE MODIFIERS === */
+  --scale: 1;
+  --table-scale: 1;
+
+  /* === PALETTE MAPPINGS: NEUTRALS === */
+  --bg: var(--dark-neutral-5);
+  --bg-alt: var(--dark-neutral-0);
+  --surface: var(--dark-neutral-10);
+  --surface-elevated: var(--dark-neutral-15);
+  --fg: var(--dark-neutral-90);
+  --fg-secondary: var(--dark-neutral-70);
+  --fg-muted: var(--dark-neutral-50);
+
+  /* === PALETTE MAPPINGS: MOOD COLORS === */
+  --confident: var(--dark-confident);
+  --confident-soft: var(--dark-confident-soft);
+  --energetic: var(--dark-energetic);
+  --energetic-soft: var(--dark-energetic-soft);
+  --success: var(--dark-success);
+  --success-soft: var(--dark-success-soft);
+  --warning: var(--dark-warning);
+  --warning-soft: var(--dark-warning-soft);
+  --danger: var(--dark-danger);
+  --danger-soft: var(--dark-danger-soft);
+  --premium: var(--dark-premium);
+  --premium-soft: var(--dark-premium-soft);
+  --calm: var(--dark-calm);
+  --calm-soft: var(--dark-calm-soft);
+
+  /* === PALETTE MAPPINGS: MOOD BACKGROUNDS === */
+  --bg-confident-start: var(--dark-bg-confident-start);
+  --bg-confident-end: var(--dark-bg-confident-end);
+  --bg-energetic-start: var(--dark-bg-energetic-start);
+  --bg-energetic-end: var(--dark-bg-energetic-end);
+  --bg-success-start: var(--dark-bg-success-start);
+  --bg-success-end: var(--dark-bg-success-end);
+  --bg-warning-start: var(--dark-bg-warning-start);
+  --bg-warning-end: var(--dark-bg-warning-end);
+  --bg-danger-start: var(--dark-bg-danger-start);
+  --bg-danger-end: var(--dark-bg-danger-end);
+  --bg-premium-start: var(--dark-bg-premium-start);
+  --bg-premium-end: var(--dark-bg-premium-end);
+  --bg-calm-start: var(--dark-bg-calm-start);
+  --bg-calm-end: var(--dark-bg-calm-end);
+
+  /* === PALETTE MAPPINGS: SYNTAX HIGHLIGHTING === */
+  --syntax-keyword: var(--dark-syntax-keyword);
+  --syntax-string: var(--dark-syntax-string);
+  --syntax-number: var(--dark-syntax-number);
+  --syntax-title: var(--dark-syntax-title);
+  --syntax-variable: var(--dark-syntax-variable);
+  --syntax-builtin: var(--dark-syntax-builtin);
+  --syntax-attribute: var(--dark-syntax-attribute);
+  --syntax-addition-bg: var(--dark-syntax-addition-bg);
+  --syntax-deletion-bg: var(--dark-syntax-deletion-bg);
+}
+
+/* ============================================================================
+   LAYER 2: MODE - LIGHT
+   ============================================================================ */
+
+section.light,
+.light {
+  /* === EFFECT PARAMETERS (reduced for light mode) === */
+  --glow-alpha: 8%;
+  --shadow-alpha: 10%;
+  --heading-shadow-alpha: 0%;
+  --border-mix-fg: 20%;
+  --border-subtle-mix-fg: 10%;
+  --border-emphasis-mix: 40%;
+  --stripe-alpha: 2%;
+  --overlay-alpha: 90%;
+  --glass-alpha: 70%;
+
+  /* === PALETTE MAPPINGS: NEUTRALS === */
+  --bg: var(--light-neutral-100);
+  --bg-alt: var(--light-neutral-95);
+  --surface: var(--light-neutral-95);
+  --surface-elevated: var(--light-neutral-90);
+  --fg: var(--light-neutral-10);
+  --fg-secondary: var(--light-neutral-30);
+  --fg-muted: var(--light-neutral-50);
+
+  /* === PALETTE MAPPINGS: MOOD COLORS === */
+  --confident: var(--light-confident);
+  --confident-soft: var(--light-confident-soft);
+  --energetic: var(--light-energetic);
+  --energetic-soft: var(--light-energetic-soft);
+  --success: var(--light-success);
+  --success-soft: var(--light-success-soft);
+  --warning: var(--light-warning);
+  --warning-soft: var(--light-warning-soft);
+  --danger: var(--light-danger);
+  --danger-soft: var(--light-danger-soft);
+  --premium: var(--light-premium);
+  --premium-soft: var(--light-premium-soft);
+  --calm: var(--light-calm);
+  --calm-soft: var(--light-calm-soft);
+
+  /* === PALETTE MAPPINGS: MOOD BACKGROUNDS === */
+  --bg-confident-start: var(--light-bg-confident-start);
+  --bg-confident-end: var(--light-bg-confident-end);
+  --bg-energetic-start: var(--light-bg-energetic-start);
+  --bg-energetic-end: var(--light-bg-energetic-end);
+  --bg-success-start: var(--light-bg-success-start);
+  --bg-success-end: var(--light-bg-success-end);
+  --bg-warning-start: var(--light-bg-warning-start);
+  --bg-warning-end: var(--light-bg-warning-end);
+  --bg-danger-start: var(--light-bg-danger-start);
+  --bg-danger-end: var(--light-bg-danger-end);
+  --bg-premium-start: var(--light-bg-premium-start);
+  --bg-premium-end: var(--light-bg-premium-end);
+  --bg-calm-start: var(--light-bg-calm-start);
+  --bg-calm-end: var(--light-bg-calm-end);
+
+  /* === PALETTE MAPPINGS: SYNTAX HIGHLIGHTING === */
+  --syntax-keyword: var(--light-syntax-keyword);
+  --syntax-string: var(--light-syntax-string);
+  --syntax-number: var(--light-syntax-number);
+  --syntax-title: var(--light-syntax-title);
+  --syntax-variable: var(--light-syntax-variable);
+  --syntax-builtin: var(--light-syntax-builtin);
+  --syntax-attribute: var(--light-syntax-attribute);
+  --syntax-addition-bg: var(--light-syntax-addition-bg);
+  --syntax-deletion-bg: var(--light-syntax-deletion-bg);
+}
+
+/* ============================================================================
+   LAYER 3: SEMANTIC + COMPUTED
+   Role-based tokens. Computed effects from mode parameters.
+   ============================================================================ */
+
+section, .light, .dark {
+  /* === SEMANTIC DEFAULTS (neutral mood) === */
+  --accent: var(--fg-secondary);
+  --accent-soft: var(--fg-muted);
+
+  --bg-gradient: linear-gradient(135deg, var(--surface) 0%, var(--bg) 100%);
+
+  /* === COMPUTED: BORDERS === */
+  --border: color-mix(in srgb, var(--fg) var(--border-mix-fg), var(--bg));
+  --border-subtle: color-mix(in srgb, var(--fg) var(--border-subtle-mix-fg), var(--bg));
+  --border-emphasis: color-mix(in srgb, var(--accent) var(--border-emphasis-mix), var(--border));
+
+  /* === COMPUTED: GLOW === */
+  --glow-color: color-mix(in srgb, var(--accent) var(--glow-alpha), transparent);
+
+  /* === COMPUTED: SHADOWS === */
+  --shadow-color: hsl(0 0% 0% / var(--shadow-alpha));
+  --shadow-sm: 0 1px 2px var(--shadow-color);
+  --shadow-md: 0 4px 12px var(--shadow-color);
+  --shadow-lg: 0 8px 24px var(--shadow-color);
+  --shadow-glow: 0 0 20px var(--glow-color);
+
+  /* === COMPUTED: SURFACES === */
+  --surface-overlay: color-mix(in srgb, var(--bg) var(--overlay-alpha), transparent);
+  --surface-glass: color-mix(in srgb, var(--bg) var(--glass-alpha), transparent);
+
+  /* === COMPUTED: UTILITIES === */
+  --table-stripe: color-mix(in srgb, var(--fg) var(--stripe-alpha), transparent);
+  --note-bg: color-mix(in srgb, var(--fg) 3%, transparent);
+  --mark-bg: color-mix(in srgb, var(--warning) 30%, transparent);
+
+  /* === COMPUTED: HEADING SHADOW === */
+  --heading-shadow: 0 0 20px color-mix(in srgb, var(--glow-color) var(--heading-shadow-alpha), transparent);
+
+  /* === SEMANTIC: TYPOGRAPHY === */
+  --heading-color: var(--fg);
+  --heading-accent: var(--accent);
+  --text-color: var(--fg);
+  --text-emphasis: var(--accent);
+  --text-link: var(--accent);
+  --list-color: var(--fg);
+  --marker-color: var(--accent);
+  --code-color: var(--accent);
+  --code-bg: var(--surface);
+
+  /* === SEMANTIC: FEEDBACK COLORS (always available) === */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+}
+
+/* ============================================================================
+   LAYER 4: MOOD - Single definitions that work for ALL modes!
+   ============================================================================ */
+
+/* === CONFIDENT === */
+section.confident,
+.confident {
+  --accent: var(--confident);
+  --accent-soft: var(--confident-soft);
+  --bg-gradient: linear-gradient(135deg, var(--bg-confident-start) 0%, var(--bg-confident-end) 100%);
+}
+
+/* === ENERGETIC === */
+section.energetic,
+.energetic {
+  --accent: var(--energetic);
+  --accent-soft: var(--energetic-soft);
+  --bg-gradient: linear-gradient(135deg, var(--bg-energetic-start) 0%, var(--bg-energetic-end) 100%);
+}
+
+/* === SUCCESS === */
+section.success,
+.success {
+  --accent: var(--success);
+  --accent-soft: var(--success-soft);
+  --bg-gradient: linear-gradient(135deg, var(--bg-success-start) 0%, var(--bg-success-end) 100%);
+}
+
+/* === WARNING === */
+section.warning,
+.warning {
+  --accent: var(--warning);
+  --accent-soft: var(--warning-soft);
+  --bg-gradient: linear-gradient(135deg, var(--bg-warning-start) 0%, var(--bg-warning-end) 100%);
+}
+
+/* === DANGER === */
+section.danger,
+.danger {
+  --accent: var(--danger);
+  --accent-soft: var(--danger-soft);
+  --bg-gradient: linear-gradient(135deg, var(--bg-danger-start) 0%, var(--bg-danger-end) 100%);
+}
+
+/* === PREMIUM === */
+section.premium,
+.premium {
+  --accent: var(--premium);
+  --accent-soft: var(--premium-soft);
+  --bg-gradient: linear-gradient(135deg, var(--bg-premium-start) 0%, var(--bg-premium-end) 100%);
+  /* Premium special surface */
+  --surface: color-mix(in srgb, var(--bg-premium-start) 80%, var(--bg));
+}
+
+/* === CALM === */
+section.calm,
+.calm {
+  --accent: var(--calm);
+  --accent-soft: var(--calm-soft);
+  --bg-gradient: linear-gradient(135deg, var(--bg-calm-start) 0%, var(--bg-calm-end) 100%);
+}
+
+/* ============================================================================
+   LAYER 5: COMPONENTS
+   Component classes that use semantic tokens directly.
+   ============================================================================ */
+
+/* ============================================================================
+   BASE SLIDE STYLING
+   ============================================================================ */
+
+section {
+  background: var(--bg-gradient);
+  color: var(--fg);
+  font-family: var(--font-family-body);
+  font-size: calc(var(--font-size-md) * var(--scale));
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  padding: var(--space-3xl);
+  justify-content: flex-start;
+}
+
+/* ============================================================================
+   TYPOGRAPHY
+   ============================================================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-semibold);
+  color: var(--heading-color);
+  margin: 0 0 var(--space-md) 0;
+  line-height: var(--line-height-tight);
+}
+
+h1 {
+  font-size: calc(var(--font-size-2xl) * var(--scale));
+  color: var(--heading-accent);
+  text-shadow: var(--heading-shadow);
+}
+
+h2 {
+  font-size: calc(var(--font-size-xl) * var(--scale));
+  color: var(--accent);
+}
+
+h3 {
+  font-size: calc(var(--font-size-lg) * var(--scale));
+}
+
+h4 {
+  font-size: calc(var(--font-size-md) * var(--scale));
+  font-weight: var(--font-weight-medium);
+}
+
+h5, h6 {
+  font-size: calc(var(--font-size-sm) * var(--scale));
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-secondary);
+}
+
+p {
+  margin: 0 0 var(--space-md) 0;
+  color: var(--text-color);
+}
+
+strong, b {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-emphasis);
+}
+
+em, i {
+  font-style: italic;
+  color: var(--fg-secondary);
+}
+
+a {
+  color: var(--text-link);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--transition-fast);
+}
+
+a:hover {
+  border-bottom-color: var(--text-link);
+}
+
+small {
+  font-size: calc(var(--font-size-sm) * var(--scale));
+  color: var(--fg-muted);
+}
+
+mark {
+  background: var(--mark-bg);
+  color: inherit;
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================================
+   LISTS
+   ============================================================================ */
+
+ul, ol {
+  margin: 0 0 var(--space-md) 0;
+  padding-left: var(--space-xl);
+}
+
+li {
+  margin: var(--space-xs) 0;
+  color: var(--list-color);
+}
+
+li::marker {
+  color: var(--marker-color);
+}
+
+ul ul, ul ol, ol ul, ol ol {
+  margin: var(--space-xs) 0;
+}
+
+/* ============================================================================
+   CODE
+   ============================================================================ */
+
+code {
+  font-family: var(--font-family-mono);
+  font-size: 0.9em;
+  background: var(--code-bg);
+  color: var(--code-color);
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-sm);
+}
+
+pre {
+  background: var(--surface);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin: var(--space-md) 0;
+  overflow-x: auto;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  font-size: calc(var(--font-size-sm) * var(--scale));
+}
+
+/* ============================================================================
+   BLOCKQUOTES
+   ============================================================================ */
+
+blockquote {
+  font-family: var(--font-family-heading);
+  font-style: italic;
+  font-weight: var(--font-weight-medium);
+  border-left: 4px solid var(--accent);
+  padding: var(--space-sm) var(--space-lg);
+  margin: var(--space-lg) 0;
+  color: var(--fg-secondary);
+  background: var(--surface);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+blockquote p {
+  margin: 0;
+}
+
+/* ============================================================================
+   TABLES
+   ============================================================================ */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-md) 0;
+  font-size: calc(1em * var(--table-scale));
+}
+
+th {
+  background: var(--surface);
+  color: var(--accent);
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  border-bottom: 2px solid var(--border-emphasis);
+}
+
+td {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+tr:nth-child(even) {
+  background: var(--table-stripe);
+}
+
+/* ============================================================================
+   HORIZONTAL RULE
+   ============================================================================ */
+
+hr {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-soft));
+  margin: var(--space-xl) 0;
+  border-radius: var(--radius-full);
+}
+
+/* ============================================================================
+   IMAGES
+   ============================================================================ */
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================================
+   HEADER & FOOTER
+   ============================================================================ */
+
+header, footer {
+  font-size: var(--font-size-xs);
+  color: var(--fg-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+header {
+  position: absolute;
+  top: var(--space-lg);
+  left: var(--space-3xl);
+  right: var(--space-3xl);
+}
+
+footer {
+  position: absolute;
+  bottom: var(--space-lg);
+  left: var(--space-3xl);
+  right: var(--space-3xl);
+}
+
+section::after {
+  font-size: var(--font-size-xs);
+  color: var(--fg-muted);
+}
+
+/* ============================================================================
+   SLIDE LAYOUT CLASSES - STRUCTURAL
+   ============================================================================ */
+
+/* --- LEAD: Centered title slide --- */
+section.lead {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+section.lead h1 {
+  font-size: calc(var(--font-size-3xl) * var(--scale));
+  margin-bottom: var(--space-md);
+}
+
+section.lead h2 {
+  font-size: calc(var(--font-size-lg) * var(--scale));
+  font-weight: var(--font-weight-light);
+  color: var(--fg-secondary);
+}
+
+section.lead p {
+  color: var(--fg-secondary);
+  max-width: 70%;
+}
+
+/* --- SECTION: Chapter divider --- */
+section.section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 15%;
+}
+
+section.section h1 {
+  font-size: calc(var(--font-size-2xl) * var(--scale));
+}
+
+section.section h2 {
+  font-weight: var(--font-weight-light);
+  color: var(--fg-secondary);
+}
+
+/* --- COLUMNS: Two columns without divider --- */
+section.columns,
+.columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xl);
+  align-content: flex-start;
+}
+
+section.columns > h1,
+section.columns > h2,
+.columns > h1,
+.columns > h2 {
+  flex: 0 0 100%;
+  align-self: flex-start;
+  margin-bottom: var(--space-md);
+}
+
+section.columns > .col,
+.columns > .col {
+  flex: 1 1 45%;
+  min-width: 250px;
+}
+
+section.columns > *:not(h1):not(h2):not(.col):not(header):not(footer),
+.columns > *:not(h1):not(h2):not(.col) {
+  flex: 1 1 45%;
+  min-width: 250px;
+}
+
+/* --- SPLIT: Two columns with vertical divider --- */
+section.split,
+.split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xl);
+  align-items: stretch;
+  align-content: flex-start;
+}
+
+section.split > h1,
+section.split > h2,
+.split > h1,
+.split > h2 {
+  flex: 0 0 100%;
+  align-self: flex-start;
+  margin-bottom: var(--space-md);
+}
+
+section.split > .col,
+.split > .col {
+  flex: 1 1 45%;
+  min-width: 250px;
+  position: relative;
+}
+
+section.split > .col:nth-of-type(2),
+.split > .col:nth-of-type(2) {
+  padding-left: var(--space-xl);
+  border-left: 2px solid;
+  border-image: linear-gradient(180deg, var(--accent), var(--accent-soft)) 1;
+}
+
+section.split > *:not(h1):not(h2):not(.col):not(header):not(footer),
+.split > *:not(h1):not(h2):not(.col) {
+  flex: 1 1 45%;
+  min-width: 250px;
+}
+
+/* --- THIRDS: Three columns --- */
+section.thirds,
+.thirds {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-lg);
+  align-content: start;
+}
+
+section.thirds > h1,
+section.thirds > h2,
+.thirds > h1,
+.thirds > h2 {
+  grid-column: 1 / -1;
+}
+
+/* --- SIDEBAR-LEFT: Narrow left + wide right --- */
+section.sidebar-left,
+.sidebar-left {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-xl);
+  align-content: start;
+}
+
+section.sidebar-left > h1,
+section.sidebar-left > h2,
+.sidebar-left > h1,
+.sidebar-left > h2 {
+  grid-column: 1 / -1;
+}
+
+/* --- SIDEBAR-RIGHT: Wide left + narrow right --- */
+section.sidebar-right,
+.sidebar-right {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-xl);
+  align-content: start;
+}
+
+section.sidebar-right > h1,
+section.sidebar-right > h2,
+.sidebar-right > h1,
+.sidebar-right > h2 {
+  grid-column: 1 / -1;
+}
+
+/* --- IMAGE-LEFT: Image left, text right --- */
+section.image-left {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-lg) var(--space-xl);
+  align-items: center;
+}
+
+section.image-left > h1,
+section.image-left > h2 {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+}
+
+section.image-left > p:not(:has(img)),
+section.image-left > ul,
+section.image-left > ol {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+}
+
+section.image-left > p:has(img) {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+section.image-left img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+/* --- IMAGE-RIGHT: Text left, image right --- */
+section.image-right {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-lg) var(--space-xl);
+  align-items: center;
+}
+
+section.image-right > h1,
+section.image-right > h2 {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: end;
+}
+
+section.image-right > p:not(:has(img)),
+section.image-right > ul,
+section.image-right > ol {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+}
+
+section.image-right > p:has(img) {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+section.image-right img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+/* --- IMAGE-FULL: Full background image with overlay --- */
+section.image-full {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-2xl);
+}
+
+section.image-full h1,
+section.image-full h2,
+section.image-full p {
+  background: var(--surface-overlay);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(8px);
+  max-width: 60%;
+}
+
+/* --- BLANK: No padding, just background --- */
+section.blank {
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ============================================================================
+   SLIDE LAYOUT CLASSES - CONTENT TYPE
+   ============================================================================ */
+
+/* --- QUOTE: Large centered quote --- */
+section.quote {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-3xl) 10%;
+}
+
+section.quote blockquote {
+  border: none;
+  background: transparent;
+  font-size: calc(var(--font-size-xl) * var(--scale));
+  font-weight: var(--font-weight-medium);
+  color: var(--fg);
+  max-width: 90%;
+  padding: 0;
+  margin: 0;
+}
+
+section.quote blockquote::before {
+  content: '"';
+  display: block;
+  font-size: calc(var(--font-size-3xl) * 2);
+  font-family: var(--font-family-heading);
+  color: var(--accent);
+  line-height: 0.5;
+  margin-bottom: var(--space-lg);
+  opacity: 0.5;
+}
+
+section.quote cite,
+section.quote footer {
+  display: block;
+  margin-top: var(--space-lg);
+  font-size: calc(var(--font-size-sm) * var(--scale));
+  font-style: normal;
+  font-weight: var(--font-weight-normal);
+  color: var(--fg-secondary);
+}
+
+section.quote cite::before,
+section.quote footer::before {
+  content: '— ';
+}
+
+/* --- COMPARISON: Side-by-side comparison --- */
+section.comparison,
+.comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xl);
+  align-content: start;
+}
+
+section.comparison > h1,
+section.comparison > h2,
+.comparison > h1,
+.comparison > h2 {
+  grid-column: 1 / -1;
+}
+
+section.comparison > div,
+.comparison > div {
+  background: var(--surface);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+}
+
+section.comparison > div:first-of-type,
+.comparison > div:first-of-type {
+  border-top: 3px solid var(--color-danger);
+}
+
+section.comparison > div:last-of-type,
+.comparison > div:last-of-type {
+  border-top: 3px solid var(--color-success);
+}
+
+/* --- TIMELINE: Horizontal timeline --- */
+section.timeline,
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+section.timeline > h1,
+section.timeline > h2,
+.timeline > h1,
+.timeline > h2 {
+  margin-bottom: var(--space-xl);
+}
+
+section.timeline > div,
+.timeline > div {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  padding-top: var(--space-xl);
+}
+
+section.timeline > div::before,
+.timeline > div::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-soft));
+  border-radius: var(--radius-full);
+}
+
+/* --- PROCESS: Step-by-step process --- */
+section.process,
+.process {
+  display: flex;
+  flex-direction: column;
+}
+
+section.process > h1,
+section.process > h2,
+.process > h1,
+.process > h2 {
+  margin-bottom: var(--space-xl);
+}
+
+section.process ol,
+.process ol {
+  display: flex;
+  gap: var(--space-lg);
+  list-style: none;
+  padding: 0;
+  counter-reset: process-step;
+}
+
+section.process ol li,
+.process ol li {
+  flex: 1;
+  background: var(--surface);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  position: relative;
+  counter-increment: process-step;
+}
+
+section.process ol li::before,
+.process ol li::before {
+  content: counter(process-step);
+  position: absolute;
+  top: calc(-1 * var(--space-md));
+  left: var(--space-md);
+  width: var(--space-xl);
+  height: var(--space-xl);
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+}
+
+/* --- AGENDA: Table of contents --- */
+section.agenda {
+  display: flex;
+  flex-direction: column;
+}
+
+section.agenda h1 {
+  margin-bottom: var(--space-xl);
+}
+
+section.agenda ol {
+  font-size: calc(var(--font-size-lg) * var(--scale));
+  line-height: 2;
+}
+
+section.agenda li::marker {
+  font-weight: var(--font-weight-bold);
+}
+
+/* --- TEAM: People grid --- */
+section.team {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-lg);
+}
+
+section.team > h1,
+section.team > h2 {
+  grid-column: 1 / -1;
+}
+
+section.team figure {
+  text-align: center;
+  margin: 0;
+}
+
+section.team figure img {
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  margin-bottom: var(--space-sm);
+}
+
+section.team figcaption {
+  font-weight: var(--font-weight-medium);
+}
+
+section.team figcaption small {
+  display: block;
+  color: var(--fg-muted);
+}
+
+/* --- METRICS: KPI dashboard style --- */
+section.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+section.metrics > h1,
+section.metrics > h2 {
+  grid-column: 1 / -1;
+}
+
+/* --- CODE: Optimized for code display --- */
+section.code,
+.code {
+  --scale: 0.85;
+}
+
+section.code pre,
+.code pre {
+  flex: 1;
+  margin: 0;
+  font-size: calc(var(--font-size-sm) * var(--scale));
+}
+
+/* ============================================================================
+   SIZE MODIFIERS
+   ============================================================================ */
+
+section.tiny { --scale: 0.7; }
+section.small { --scale: 0.85; }
+section.large { --scale: 1.15; }
+section.huge { --scale: 1.3; }
+
+.table-tiny { --table-scale: 0.7; }
+.table-small { --table-scale: 0.85; }
+.table-large { --table-scale: 1.15; }
+
+.compact {
+  --scale: 0.85;
+  --table-scale: 0.8;
+}
+
+/* ============================================================================
+   CONTAINER COMPONENTS
+   ============================================================================ */
+
+.caption {
+  font-size: var(--font-size-sm);
+  color: var(--fg-secondary);
+  background: var(--surface-glass);
+  padding: var(--space-sm) var(--space-md);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+/* Caption default widths by position */
+.caption.top-left,
+.caption.top-right,
+.caption.bottom-left,
+.caption.bottom-right,
+.caption.left,
+.caption.right {
+  width: 37%;
+}
+
+.caption.center {
+  width: 50%;
+}
+
+.caption.top,
+.caption.bottom {
+  width: 90%;
+}
+
+.callout {
+  background: var(--surface);
+  border-left: 4px solid var(--accent);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  margin: var(--space-md) 0;
+}
+
+.callout > *:first-child { margin-top: 0; }
+.callout > *:last-child { margin-bottom: 0; }
+
+.aside {
+  font-size: var(--font-size-sm);
+  color: var(--fg-secondary);
+  background: var(--surface);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.quote {
+  font-style: italic;
+  color: var(--fg-secondary);
+  padding-left: var(--space-lg);
+  border-left: 3px solid var(--accent-soft);
+}
+
+.note {
+  font-size: var(--font-size-xs);
+  color: var(--fg-muted);
+  padding: var(--space-sm);
+  background: var(--note-bg);
+  border-radius: var(--radius-sm);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--accent);
+  color: var(--bg);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.badge > p {
+  margin: 0;
+  line-height: inherit;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.card > *:first-child { margin-top: 0; }
+.card > *:last-child { margin-bottom: 0; }
+
+.box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.panel {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.panel > h3,
+.panel > h4 {
+  background: var(--surface-elevated);
+  margin: 0;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.panel > *:not(h3):not(h4) {
+  padding: var(--space-md) var(--space-lg);
+}
+
+.steps {
+  counter-reset: step-counter;
+  padding-left: 0;
+}
+
+.steps > * {
+  position: relative;
+  padding-left: var(--space-2xl);
+  margin-bottom: var(--space-md);
+  counter-increment: step-counter;
+}
+
+.steps > *::before {
+  content: counter(step-counter);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--space-xl);
+  height: var(--space-xl);
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+}
+
+.col { }
+
+.metric {
+  text-align: center;
+  padding: var(--space-lg);
+}
+
+.metric strong,
+.metric .value {
+  display: block;
+  font-size: calc(var(--font-size-3xl) * var(--scale));
+  font-weight: var(--font-weight-bold);
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: var(--space-xs);
+  white-space: nowrap;
+}
+
+.metric span,
+.metric .label {
+  font-size: var(--font-size-sm);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  white-space: nowrap;
+}
+
+.stat .value {
+  font-size: calc(var(--font-size-2xl) * var(--scale));
+  font-weight: var(--font-weight-bold);
+  color: var(--accent);
+}
+
+.stat .trend {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.stat .trend.up { color: var(--color-success); }
+.stat .trend.down { color: var(--color-danger); }
+
+.figure {
+  margin: var(--space-md) 0;
+  text-align: center;
+}
+
+.figure img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+
+.figure figcaption,
+.figure .caption {
+  margin-top: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--fg-muted);
+}
+
+.diagram {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-lg);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  margin: var(--space-md) 0;
+}
+
+.code-block {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin: var(--space-md) 0;
+}
+
+.code-block > .title,
+.code-block > h4 {
+  background: var(--surface-elevated);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-mono);
+  color: var(--fg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  margin: 0;
+}
+
+.code-block pre {
+  margin: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+
+/* ============================================================================
+   COMPONENT MODIFIERS
+   ============================================================================ */
+
+section :not(section).tiny { font-size: calc(var(--font-size-xs) * var(--scale)); }
+section :not(section).small { font-size: calc(var(--font-size-sm) * var(--scale)); }
+section :not(section).large { font-size: calc(var(--font-size-lg) * var(--scale)); }
+section :not(section).huge { font-size: calc(var(--font-size-xl) * var(--scale)); }
+
+.muted {
+  opacity: 0.7;
+  color: var(--fg-muted);
+}
+
+.emphasis {
+  border-color: var(--accent);
+  background: var(--surface-elevated);
+}
+
+.emphasis .badge { background: var(--accent); }
+
+.highlight {
+  border-color: var(--accent);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 15%, transparent), var(--shadow-glow);
+}
+
+/* Position modifiers */
+.top {
+  position: absolute;
+  top: var(--space-xl);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.bottom {
+  position: absolute;
+  bottom: var(--space-xl);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.left {
+  position: absolute;
+  left: var(--space-xl);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.right {
+  position: absolute;
+  right: var(--space-xl);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.top-left {
+  position: absolute;
+  top: var(--space-xl);
+  left: var(--space-xl);
+}
+
+.top-right {
+  position: absolute;
+  top: var(--space-xl);
+  right: var(--space-xl);
+}
+
+.bottom-left {
+  position: absolute;
+  bottom: var(--space-xl);
+  left: var(--space-xl);
+}
+
+.bottom-right {
+  position: absolute;
+  bottom: var(--space-xl);
+  right: var(--space-xl);
+}
+
+/* Auto-enable absolute positioning for elements with inline position styles */
+[style*="top:"],
+[style*="bottom:"] {
+  position: absolute;
+}
+
+/* Semantic variants */
+.callout.success,
+.card.success {
+  border-color: var(--color-success);
+}
+
+.callout.warning,
+.card.warning {
+  border-color: var(--color-warning);
+}
+
+.callout.danger,
+.card.danger {
+  border-color: var(--color-danger);
+}
+
+.badge.success {
+  background: var(--color-success);
+}
+
+.badge.warning {
+  background: var(--color-warning);
+}
+
+.badge.danger {
+  background: var(--color-danger);
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-around { justify-content: space-around; }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.gap-lg { gap: var(--space-lg); }
+
+.grid { display: grid; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Wrap modifiers */
+section.wrap-2 > ol, section.wrap-2 > ul, section.wrap-2,
+.wrap-2 > ol, .wrap-2 > ul, .wrap-2 { --wrap-basis: 47%; }
+
+section.wrap-3 > ol, section.wrap-3 > ul, section.wrap-3,
+.wrap-3 > ol, .wrap-3 > ul, .wrap-3 { --wrap-basis: 30%; }
+
+section.wrap-4 > ol, section.wrap-4 > ul, section.wrap-4,
+.wrap-4 > ol, .wrap-4 > ul, .wrap-4 { --wrap-basis: 22%; }
+
+section.wrap-5 > ol, section.wrap-5 > ul, section.wrap-5,
+.wrap-5 > ol, .wrap-5 > ul, .wrap-5 { --wrap-basis: 17%; }
+
+section.wrap-6 > ol, section.wrap-6 > ul, section.wrap-6,
+.wrap-6 > ol, .wrap-6 > ul, .wrap-6 { --wrap-basis: 14%; }
+
+section.wrap-7 > ol, section.wrap-7 > ul, section.wrap-7,
+.wrap-7 > ol, .wrap-7 > ul, .wrap-7 { --wrap-basis: 12%; }
+
+section.wrap-8 > ol, section.wrap-8 > ul, section.wrap-8,
+.wrap-8 > ol, .wrap-8 > ul, .wrap-8 { --wrap-basis: 10%; }
+
+section[class*="wrap-"] > ol,
+section[class*="wrap-"] > ul,
+[class*="wrap-"] > ol,
+[class*="wrap-"] > ul {
+  flex-wrap: wrap;
+}
+
+section[class*="wrap-"] > ol > li,
+section[class*="wrap-"] > ul > li,
+[class*="wrap-"] > ol > li,
+[class*="wrap-"] > ul > li {
+  flex: 1 1 var(--wrap-basis);
+  min-width: 0;
+}
+
+section[class*="wrap-"].metrics > .metric,
+section[class*="wrap-"].team > figure,
+[class*="wrap-"].metrics > .metric,
+[class*="wrap-"].team > figure {
+  flex: 1 1 var(--wrap-basis);
+  min-width: 0;
+}
+
+.mt-0 { margin-top: 0; }
+.mb-0 { margin-bottom: 0; }
+.mt-md { margin-top: var(--space-md); }
+.mb-md { margin-bottom: var(--space-md); }
+.p-0 { padding: 0; }
+.p-md { padding: var(--space-md); }
+.p-lg { padding: var(--space-lg); }
+
+.w-full { width: 100%; }
+.w-half { width: 50%; }
+.w-third { width: 33.333%; }
+.max-w-narrow { max-width: 600px; }
+.max-w-medium { max-width: 800px; }
+
+/* Glass modifier - universal translucent surface */
+.glass {
+  background: var(--surface-glass);
+  backdrop-filter: blur(8px);
+}
+
+/* ============================================================================
+   SYNTAX HIGHLIGHTING
+   Uses mapped tokens from Layer 2 - automatically adapts to dark/light mode.
+   ============================================================================ */
+
+.hljs { color: var(--fg); }
+.hljs-comment, .hljs-quote { color: var(--fg-muted); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-type { color: var(--syntax-keyword); }
+.hljs-string { color: var(--syntax-string); }
+.hljs-number, .hljs-literal { color: var(--syntax-number); }
+.hljs-title, .hljs-section, .hljs-name { color: var(--syntax-title); }
+.hljs-variable, .hljs-template-variable { color: var(--syntax-variable); }
+.hljs-built_in { color: var(--syntax-builtin); }
+.hljs-attribute { color: var(--syntax-attribute); }
+.hljs-meta { color: var(--fg-secondary); }
+.hljs-addition { background: color-mix(in srgb, var(--syntax-addition-bg) 15%, transparent); color: var(--syntax-string); }
+.hljs-deletion { background: color-mix(in srgb, var(--syntax-deletion-bg) 15%, transparent); color: var(--syntax-deletion-bg); }
+
+/* ============================================================================
+   PRINT / EXPORT ADJUSTMENTS
+   ============================================================================ */
+
+@media print {
+  section {
+    background: var(--bg) !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

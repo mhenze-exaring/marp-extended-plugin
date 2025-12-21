@@ -1,39 +1,64 @@
-# Claude Code Guidelines for obsidian-marp-plugin
+# Claude Code Guidelines for marp-extended-plugin
 
 ## Project Overview
 
-**obsidian-marp-plugin** is an Obsidian community plugin that integrates [Marp](https://marp.app/) (Markdown Presentation Ecosystem) for creating and exporting slide presentations. Original author: JichouP. License: MIT.
+**Marp Extended** is an Obsidian community plugin that integrates [Marp](https://marp.app/) (Markdown Presentation Ecosystem) for creating and exporting slide presentations. It extends the original plugin by JichouP with additional features like Mermaid diagram support, enhanced preview sync, and a standalone CLI.
+
+**License**: MIT
 
 ### Core Functionality
-- Live preview of Marp presentations within Obsidian
-- Export slides to PDF, PPTX, and HTML formats
-- Auto-reload preview on file save
-- Custom theme support via CSS files
+
+- Live preview of Marp presentations within Obsidian (sidebar, split, or tab)
+- Export slides to PDF, PPTX, and HTML formats via `marp-cli`
+- Bidirectional sync between editor cursor and preview slide
 - **Wikilink support** for images (`![[image.png]]` syntax)
+- **Mermaid diagram rendering** with caching
+- Custom theme support via CSS files
+- Standalone CLI for batch exports (`marp-extended`)
 
 ## Tech Stack
 
 - **Language**: TypeScript (strict mode)
 - **Bundler**: ESBuild
+- **Testing**: Vitest
 - **Platform**: Obsidian Plugin API (Electron-based)
 - **Key Dependencies**:
   - `@marp-team/marp-core` - Marp rendering engine
+  - `mermaid` - Diagram rendering
+  - `commander` - CLI framework
   - `fix-path` - PATH fix for macOS GUI apps
   - `mime` - MIME type detection
 
 ## Architecture
 
 ### Source Structure
+
 ```
 src/
-├── main.ts          # Plugin entry point, commands, ribbon icon, theme loading
-├── preview.ts       # PreviewView component (ItemView), Wikilink conversion
-├── export.ts        # Export via external npx @marp-team/marp-cli process
-├── marp.ts          # Marp singleton instance
-├── engine.ts        # Custom marp-cli engine for data URL validation
-├── settings.ts      # MarpPluginSettings interface and defaults
-├── settingTab.ts    # Settings UI (PluginSettingTab)
-└── convertImage.ts  # Image path resolution and base64 conversion
+├── cli/                    # Standalone CLI
+│   └── index.ts            # CLI entry point (marp-extended command)
+├── core/                   # Platform-agnostic core logic
+│   ├── config.ts           # Configuration types and loading
+│   ├── diagrams/           # Diagram rendering (Mermaid, PlantUML)
+│   ├── embedding.ts        # Image embedding utilities
+│   ├── engine.ts           # Custom marp-cli engine
+│   ├── export.ts           # Unified export pipeline
+│   ├── index.ts            # Core exports
+│   ├── markdownItPlugins.ts    # Custom markdown-it plugins
+│   ├── markdownItPlugins.test.ts
+│   ├── marpCli.ts          # Marp CLI command builder
+│   ├── nodePathResolver.ts # Node.js path resolution
+│   ├── preprocessor.ts     # Markdown preprocessing (wikilinks, directives)
+│   └── types.ts            # Shared types
+└── obsidian/               # Obsidian-specific implementation
+    ├── main.ts             # Plugin entry point
+    ├── deckView.ts         # Preview view (ItemView)
+    ├── export.ts           # Obsidian export integration
+    ├── marp.ts             # Marp instance singleton
+    ├── mermaidCache.ts     # Mermaid SVG caching
+    ├── settings.ts         # Settings interface and defaults
+    ├── settingTab.ts       # Settings UI
+    └── vaultPathResolver.ts # Vault path resolution
 ```
 
 ### Critical Design Decisions
@@ -45,23 +70,65 @@ src/
 
 2. **Wikilink Image Support**
    - The plugin converts `![[image.png]]` to standard Markdown image syntax
-   - This is a key differentiator from other Marp integrations
-   - Located in `preview.ts:replaceImageWikilinks()`
+   - Located in `src/core/preprocessor.ts`
    - **Preserve this functionality in all changes**
 
-3. **Export Output Location**
-   - Exports always go to user's `Downloads` directory
-   - Temporary files (`.tmp`, `engine.js`) are created and cleaned up after export
+3. **Core/Obsidian Separation**
+   - `src/core/` contains platform-agnostic logic (shared between Obsidian plugin and CLI)
+   - `src/obsidian/` contains Obsidian-specific implementations
+   - This enables the standalone CLI to reuse core functionality
+
+4. **Plugin ID for Coexistence**
+   - Plugin ID is `marp-extended` (not `marp`) to coexist with original plugin
+   - View type is `marp-ext-deck-view`
+   - CSS classes use `marp-ext-*` prefix
 
 ## Build Commands
 
 ```bash
-npm install        # Install dependencies
-npm run dev        # Development mode with watch
-npm run build      # Production build (type check + minified bundle)
+npm install          # Install dependencies
+npm run dev          # Development mode with watch
+npm run build        # Production build (type check + bundle)
+npm run build:quick  # Production build (skip type check)
+npm run build:cli    # Build CLI only
+npm run build:all    # Build both plugin and CLI
+npm run deploy       # Build and deploy to local Obsidian vault
+npm run test         # Run tests
+npm run test:watch   # Run tests in watch mode
 ```
 
-Output: `main.js` in project root (for Obsidian to load)
+**Output**:
+- Plugin: `dist/obsidian/main.js` (copied to project root as `main.js`)
+- CLI: `dist/cli/index.js`
+
+## Settings Interface
+
+```typescript
+interface MarpPluginSettings {
+  // Preview settings
+  autoReload: boolean;          // Auto-reload preview on save (default: true)
+  previewLocation: 'sidebar' | 'split' | 'tab';  // Where to open preview (default: 'sidebar')
+  enableSyncPreview: boolean;   // Sync preview with editor cursor (default: true)
+  enableTextSelection: boolean; // Allow text selection in preview (default: false)
+  followActiveFile: boolean;    // Switch preview when changing files (default: false)
+
+  // Theme settings
+  themeDir: string;             // Custom theme folder (default: 'MarpTheme')
+
+  // Marp rendering options
+  enableHTML: boolean;          // Allow HTML in slides (default: false)
+  mathTypesetting: 'mathjax' | 'katex' | false;  // Math engine (default: 'mathjax')
+  enableMarkdownItPlugins: boolean;  // Extended markdown features (default: false)
+
+  // Mermaid settings
+  enableMermaid: boolean;       // Render Mermaid diagrams (default: true)
+  mermaidTheme: 'default' | 'dark' | 'forest' | 'neutral' | 'base';
+
+  // Export settings
+  exportPath: string;           // Custom export directory (default: '' = Downloads)
+  chromePath: string;           // Custom Chrome/Chromium path for PDF export
+}
+```
 
 ## Code Style
 
@@ -72,72 +139,54 @@ Output: `main.js` in project root (for Obsidian to load)
 - Trailing commas (all)
 - Arrow parens: avoid
 
-### Linting (ESLint)
-- TypeScript ESLint recommended rules
-- `@typescript-eslint/ban-ts-comment`: off
-- `no-prototype-builtins`: off
-- `@typescript-eslint/no-empty-function`: off
-
 ### TypeScript
 - `noImplicitAny`: true
 - `strictNullChecks`: true
 - Use async/await for all async operations
 - Use Obsidian's `Notice` API for user feedback
 
-## Settings Interface
-
-```typescript
-interface MarpPluginSettings {
-  autoReload: boolean;        // Auto-reload preview on save (default: true)
-  createNewSplitTab: boolean; // Open preview in split tab (default: true)
-  themeDir: string;           // Custom theme folder (default: 'MarpTheme')
-}
-```
-
 ## Testing
 
-No automated tests currently. Manual testing checklist:
+```bash
+npm run test         # Run all tests
+npm run test:watch   # Watch mode
+```
+
+### Manual Testing Checklist
 1. Preview renders correctly with various Marp directives
 2. Wikilink images (`![[image.png]]`) display in preview
 3. Standard Markdown images display in preview
-4. Exports (PDF, PPTX, HTML) work correctly
-5. Custom themes load from theme directory
-6. Auto-reload triggers on file save
-7. Export embeds images as base64
+4. Mermaid diagrams render correctly
+5. Exports (PDF, PPTX, HTML) work correctly
+6. Custom themes load from theme directory
+7. Auto-reload triggers on file save
+8. Preview syncs with editor cursor position
+9. Clicking slide navigates to corresponding editor line
 
 ## Common Issues & Debugging
 
 ### "npx not found" / Export fails
 - User needs Node.js installed and in PATH
 - On macOS, `fix-path` should resolve GUI app PATH issues
-- Check: `export.ts:fixPath()` call
+- Check: `src/obsidian/export.ts` for PATH handling
 
 ### Images not displaying in preview
-- Check Wikilink regex: `preview.ts:replaceImageWikilinks()`
-- For standard images, check `convertImage.ts:convertPathToLocalLink()`
+- Check wikilink preprocessing: `src/core/preprocessor.ts`
+- Check image path resolution: `src/obsidian/deckView.ts:resolveImagePath()`
 
-### Images not embedded in export
-- Check `export.ts` image regex: `/!\[[^\]]*\]\(([^)]+)\)/g`
-- Check `convertImage.ts:convertToBase64()`
+### Mermaid diagrams not rendering
+- Verify `enableMermaid` setting is true
+- Check browser console for Mermaid errors
+- Check: `src/obsidian/mermaidCache.ts`
+
+### Preview not syncing with editor
+- Verify `enableSyncPreview` setting is true
+- Check: `src/obsidian/deckView.ts:syncPreviewToEditor()`
 
 ### Export fails silently
 - Check browser console for errors
-- Export uses `exec()` callback - errors may not surface to user
-- Improve with better `Notice` feedback
-
-### Known Bug
-- `convertImage.ts:39` uses `this.app` but `convertToBase64` is not a method, causing potential runtime error. Should use global `app` instead.
-
-## Migration Context
-
-See `AGENTS.md` for migration plans from `obsidian-marp-slides` project. Priority features:
-1. Extended settings (custom export path, Chrome path, math engine)
-2. Better error handling with user notifications
-3. Sidebar toolbar for docked preview
-4. PNG export support
-5. Marp presentation detection via frontmatter
-
-Reference project: `/home/mhenze/Development/3rdParty/obsidian-marp-slides/`
+- Verify Chrome/Chromium is available for PDF export
+- Check: `src/core/export.ts`
 
 ## Git Workflow
 
@@ -145,8 +194,17 @@ Reference project: `/home/mhenze/Development/3rdParty/obsidian-marp-slides/`
 - Use conventional commits
 - Run `npm run build` before committing to verify no TypeScript errors
 
-## Dependencies Management
+## CLI Usage
 
-- Dependabot enabled for automated dependency updates
-- Keep production dependencies minimal (currently 3)
-- Dev dependencies include Obsidian type stubs and build tooling
+The standalone CLI can be used for batch exports:
+
+```bash
+# Via npx (after publishing)
+npx marp-extended export presentation.md --format pdf
+
+# Local development
+npm run build:cli
+node dist/cli/index.js export presentation.md --format pdf
+```
+
+Configuration via `marp-extended.config.json` in project root.

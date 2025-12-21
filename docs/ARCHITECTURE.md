@@ -5,7 +5,7 @@ This document describes the technical architecture of the Obsidian Marp Plugin.
 ## Project Structure
 
 ```
-obsidian-marp-plugin/
+marp-extended-plugin/
 ├── src/
 │   ├── core/                    # Shared core (CLI + Obsidian)
 │   │   ├── types.ts             # PathResolver interface, isLocalPath util

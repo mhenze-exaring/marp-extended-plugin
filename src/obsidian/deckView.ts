@@ -21,7 +21,7 @@ import {
 } from '../core';
 import { MermaidCacheManager } from './mermaidCache';
 
-export const MARP_DECK_VIEW_TYPE = 'marp-deck-view';
+export const MARP_DECK_VIEW_TYPE = 'marp-ext-deck-view';
 
 interface DeckViewState {
   file?: TFile | null; // Used when setting state programmatically
@@ -315,7 +315,7 @@ export class DeckView extends ItemView {
 
     // Add Marp CSS
     const styleEl = this.slidesContainerEl.createEl('style', {
-      attr: { id: '__marp-deck-style' },
+      attr: { id: '__marp-ext-deck-style' },
     });
 
     // Add text selection CSS if enabled
@@ -352,23 +352,23 @@ export class DeckView extends ItemView {
     this.activeSlideStyleEl = null;
 
     const placeholderEl = this.slidesContainerEl.createDiv({
-      cls: 'marp-placeholder',
+      cls: 'marp-ext-placeholder',
     });
 
     placeholderEl.createEl('div', {
       text: 'Select a Marp Presentation!',
-      cls: 'marp-placeholder-title',
+      cls: 'marp-ext-placeholder-title',
     });
 
     placeholderEl.createEl('div', {
       text: '(marp: true in the frontmatter)',
-      cls: 'marp-placeholder-subtitle',
+      cls: 'marp-ext-placeholder-subtitle',
     });
 
     // Add placeholder styles
     const styleEl = this.slidesContainerEl.createEl('style');
     styleEl.textContent = `
-      .marp-placeholder {
+      .marp-ext-placeholder {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -378,12 +378,12 @@ export class DeckView extends ItemView {
         text-align: center;
         color: var(--text-muted);
       }
-      .marp-placeholder-title {
+      .marp-ext-placeholder-title {
         font-size: 1.1rem;
         font-weight: 500;
         margin-bottom: 0.5rem;
       }
-      .marp-placeholder-subtitle {
+      .marp-ext-placeholder-subtitle {
         font-size: 0.9rem;
         font-family: var(--font-monospace);
         opacity: 0.8;
@@ -582,16 +582,16 @@ export class DeckView extends ItemView {
   private highlightActiveSlide(slideIndex: number) {
     // Remove previous highlight
     const previousActive = this.slidesContainerEl.querySelector(
-      '[data-marp-vscode-slide-wrapper].marp-active-slide',
+      '[data-marp-vscode-slide-wrapper].marp-ext-active-slide',
     );
     if (previousActive) {
-      previousActive.classList.remove('marp-active-slide');
+      previousActive.classList.remove('marp-ext-active-slide');
     }
 
     // Add highlight to current slide
     const slideEl = this.getSlideElement(slideIndex);
     if (slideEl) {
-      slideEl.classList.add('marp-active-slide');
+      slideEl.classList.add('marp-ext-active-slide');
     }
   }
 
@@ -600,9 +600,9 @@ export class DeckView extends ItemView {
     if (this.activeSlideStyleEl) return;
 
     this.activeSlideStyleEl = document.createElement('style');
-    this.activeSlideStyleEl.id = '__marp-active-slide-style';
+    this.activeSlideStyleEl.id = '__marp-ext-active-slide-style';
     this.activeSlideStyleEl.textContent = `
-      [data-marp-vscode-slide-wrapper].marp-active-slide {
+      [data-marp-vscode-slide-wrapper].marp-ext-active-slide {
         outline: 3px solid var(--interactive-accent);
         outline-offset: -3px;
         border-radius: 4px;
@@ -733,7 +733,7 @@ export class DeckView extends ItemView {
     callback: () => void,
   ): HTMLElement {
     const button = this.toolbarEl.createEl('button', {
-      cls: 'marp-toolbar-button clickable-icon',
+      cls: 'marp-ext-toolbar-button clickable-icon',
       attr: { 'aria-label': title, title: title },
     });
     setIcon(button, icon);
@@ -844,7 +844,7 @@ export class DeckView extends ItemView {
     const container = this.containerEl.children[1] as HTMLElement;
 
     // Create search bar container
-    this.searchContainerEl = container.createDiv({ cls: 'marp-search-bar' });
+    this.searchContainerEl = container.createDiv({ cls: 'marp-ext-search-bar' });
     this.searchContainerEl.style.display = 'none';
     this.searchContainerEl.style.position = 'absolute';
     this.searchContainerEl.style.top = '0';
@@ -861,7 +861,7 @@ export class DeckView extends ItemView {
     this.searchInputEl = this.searchContainerEl.createEl('input', {
       type: 'text',
       placeholder: 'Search in slides...',
-      cls: 'marp-search-input',
+      cls: 'marp-ext-search-input',
     });
     this.searchInputEl.style.width = '200px';
     this.searchInputEl.style.padding = '4px 8px';
@@ -872,7 +872,7 @@ export class DeckView extends ItemView {
 
     // Results counter
     this.searchResultsEl = this.searchContainerEl.createSpan({
-      cls: 'marp-search-results',
+      cls: 'marp-ext-search-results',
     });
     this.searchResultsEl.style.fontSize = '12px';
     this.searchResultsEl.style.color = 'var(--text-muted)';
@@ -880,14 +880,14 @@ export class DeckView extends ItemView {
 
     // Navigation buttons
     const prevBtn = this.searchContainerEl.createEl('button', {
-      cls: 'marp-search-btn clickable-icon',
+      cls: 'marp-ext-search-btn clickable-icon',
       attr: { 'aria-label': 'Previous match' },
     });
     setIcon(prevBtn, 'chevron-up');
     prevBtn.addEventListener('click', () => this.goToPreviousMatch());
 
     const nextBtn = this.searchContainerEl.createEl('button', {
-      cls: 'marp-search-btn clickable-icon',
+      cls: 'marp-ext-search-btn clickable-icon',
       attr: { 'aria-label': 'Next match' },
     });
     setIcon(nextBtn, 'chevron-down');
@@ -895,7 +895,7 @@ export class DeckView extends ItemView {
 
     // Close button
     const closeBtn = this.searchContainerEl.createEl('button', {
-      cls: 'marp-search-btn clickable-icon',
+      cls: 'marp-ext-search-btn clickable-icon',
       attr: { 'aria-label': 'Close search' },
     });
     setIcon(closeBtn, 'x');
@@ -1042,8 +1042,8 @@ export class DeckView extends ItemView {
 
       const highlight = document.createElement('mark');
       highlight.className = isCurrent
-        ? 'marp-search-highlight marp-search-current'
-        : 'marp-search-highlight';
+        ? 'marp-ext-search-highlight marp-ext-search-current'
+        : 'marp-ext-search-highlight';
       highlight.style.backgroundColor = isCurrent
         ? 'var(--text-highlight-bg-active, #ff9632)'
         : 'var(--text-highlight-bg, #ffff0080)';
@@ -1122,7 +1122,7 @@ export class DeckView extends ItemView {
     container.empty();
 
     // Create wrapper for horizontal layout (slides + toolbar)
-    this.wrapperEl = container.createDiv({ cls: 'marp-deck-wrapper' });
+    this.wrapperEl = container.createDiv({ cls: 'marp-ext-deck-wrapper' });
     this.wrapperEl.style.display = 'flex';
     this.wrapperEl.style.flexDirection = 'row';
     this.wrapperEl.style.height = '100%';
@@ -1130,7 +1130,7 @@ export class DeckView extends ItemView {
 
     // Create slides container (left side)
     this.slidesContainerEl = this.wrapperEl.createDiv({
-      cls: 'marp-deck-slides',
+      cls: 'marp-ext-deck-slides',
     });
     this.slidesContainerEl.style.flex = '1';
     this.slidesContainerEl.style.overflow = 'auto';
@@ -1140,7 +1140,7 @@ export class DeckView extends ItemView {
     this.marpBrowser = browser(this.slidesContainerEl);
 
     // Create toolbar (right side) - only visible in sidebar
-    this.toolbarEl = this.wrapperEl.createDiv({ cls: 'marp-deck-toolbar' });
+    this.toolbarEl = this.wrapperEl.createDiv({ cls: 'marp-ext-deck-toolbar' });
     this.toolbarEl.style.flexShrink = '0';
     this.toolbarEl.style.display = 'flex';
     this.toolbarEl.style.flexDirection = 'column';
