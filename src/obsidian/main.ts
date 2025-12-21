@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Notice, Plugin, TFile } from 'obsidian';
+import { FileSystemAdapter, Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { MARP_DEFAULT_SETTINGS, MarpPluginSettings } from './settings';
 import { MARP_DECK_VIEW_TYPE, DeckView } from './deckView';
 import { MarpSettingTab } from './settingTab';
@@ -101,15 +101,17 @@ export default class MarpPlugin extends Plugin {
   async activateView(file: TFile) {
     // Check if a Marp leaf already exists - reuse it to preserve position (e.g., pinned in sidebar)
     const existingLeaves = this.app.workspace.getLeavesOfType(MARP_DECK_VIEW_TYPE);
-    let leaf = existingLeaves[0];
+    let leaf: WorkspaceLeaf | undefined = existingLeaves[0];
 
     if (!leaf) {
       // No existing leaf, create a new one based on settings
       switch (this.settings.previewLocation) {
         case 'sidebar': {
           // Open in right sidebar as a new split
-          leaf = this.app.workspace.getRightLeaf(true);
-          if (!leaf) {
+          const rightLeaf = this.app.workspace.getRightLeaf(true);
+          if (rightLeaf) {
+            leaf = rightLeaf;
+          } else {
             // Fallback to split tab if sidebar not available (e.g., mobile)
             leaf = this.app.workspace.getLeaf('split');
           }
@@ -126,6 +128,8 @@ export default class MarpPlugin extends Plugin {
           break;
       }
     }
+
+    if (!leaf) return; // Should not happen, but satisfy TypeScript
 
     // Reveal the leaf (opens sidebar if collapsed, focuses tab, etc.)
     this.app.workspace.revealLeaf(leaf);

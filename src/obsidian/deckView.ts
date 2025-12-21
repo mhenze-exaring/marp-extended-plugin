@@ -414,22 +414,19 @@ export class DeckView extends ItemView {
     }
   }
 
-  // Scroll to a specific slide (0-indexed)
+  // Scroll to ensure a slide is fully visible (minimal scrolling)
   scrollToSlide(slideIndex: number, forceScroll = false) {
     try {
       const slideEl = this.getSlideElement(slideIndex);
       if (!slideEl) return;
 
-      // Only scroll if the slide is not at the top or force scroll is requested
-      if (!forceScroll && this.isSlideAtTop(slideIndex)) {
+      // Check if scroll is needed
+      if (!forceScroll && this.isSlideFullyVisible(slideIndex)) {
         return;
       }
 
-      // Scroll so the top of the slide aligns with the top of the viewport
-      slideEl.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
+      // Perform minimal scroll to make slide visible
+      this.scrollSlideIntoView(slideEl);
     } catch {
       console.log('Preview slide not found!');
     }
@@ -452,21 +449,49 @@ export class DeckView extends ItemView {
     return (slides[slideIndex] as HTMLElement) || null;
   }
 
-  // Check if a slide is at the top of the viewport (within a small tolerance)
-  private isSlideAtTop(slideIndex: number): boolean {
+  // Check if a slide is fully visible within the viewport
+  private isSlideFullyVisible(slideIndex: number): boolean {
     const slideEl = this.getSlideElement(slideIndex);
     if (!slideEl) return false;
 
     const containerRect = this.slidesContainerEl.getBoundingClientRect();
     const slideRect = slideEl.getBoundingClientRect();
 
-    // Allow a small tolerance (e.g., 10px) for the slide to be considered "at top"
-    const tolerance = 10;
-    const isAtTop =
-      slideRect.top >= containerRect.top - tolerance &&
-      slideRect.top <= containerRect.top + tolerance;
+    // Allow a small tolerance (e.g., 2px) for rounding errors
+    const tolerance = 2;
 
-    return isAtTop;
+    const topVisible = slideRect.top >= containerRect.top - tolerance;
+    const bottomVisible = slideRect.bottom <= containerRect.bottom + tolerance;
+
+    return topVisible && bottomVisible;
+  }
+
+  // Scroll minimally to make a slide fully visible
+  // If slide is taller than viewport, align its top with container top
+  private scrollSlideIntoView(slideEl: HTMLElement) {
+    const containerRect = this.slidesContainerEl.getBoundingClientRect();
+    const slideRect = slideEl.getBoundingClientRect();
+
+    const slideHeight = slideRect.height;
+    const containerHeight = containerRect.height;
+
+    // If slide is taller than container, align top
+    if (slideHeight >= containerHeight) {
+      slideEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    // Calculate how much the slide is outside the viewport
+    const topOffset = containerRect.top - slideRect.top; // positive if slide is above viewport
+    const bottomOffset = slideRect.bottom - containerRect.bottom; // positive if slide is below viewport
+
+    if (topOffset > 0) {
+      // Slide is partially above viewport - scroll up to show top
+      this.slidesContainerEl.scrollBy({ top: -topOffset, behavior: 'smooth' });
+    } else if (bottomOffset > 0) {
+      // Slide is partially below viewport - scroll down to show bottom
+      this.slidesContainerEl.scrollBy({ top: bottomOffset, behavior: 'smooth' });
+    }
   }
 
   // Handle click on a slide - navigate editor to that slide
@@ -478,6 +503,9 @@ export class DeckView extends ItemView {
     this.ensureActiveSlideStyles();
     this.highlightActiveSlide(slideIndex);
     this.lastSyncedSlideIndex = slideIndex;
+
+    // Scroll minimally to ensure slide is fully visible
+    this.scrollToSlide(slideIndex);
 
     // Find the editor for our file
     const leaves = this.app.workspace.getLeavesOfType('markdown');
@@ -539,8 +567,9 @@ export class DeckView extends ItemView {
           return;
         }
 
-        // Don't trigger if this slide is already active
+        // If this slide is already active, just ensure it's fully visible
         if (index === this.lastSyncedSlideIndex) {
+          this.scrollToSlide(index);
           return;
         }
 
