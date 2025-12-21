@@ -2,10 +2,12 @@ export type MathTypesetting = 'mathjax' | 'katex' | false;
 
 export type MermaidTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
 
+export type PreviewLocation = 'sidebar' | 'split' | 'tab';
+
 export interface MarpPluginSettings {
   // Preview settings
   autoReload: boolean;
-  createNewSplitTab: boolean;
+  previewLocation: PreviewLocation;
   enableSyncPreview: boolean;
   enableTextSelection: boolean;
 
@@ -29,7 +31,7 @@ export interface MarpPluginSettings {
 export const MARP_DEFAULT_SETTINGS: MarpPluginSettings = {
   // Preview settings
   autoReload: true,
-  createNewSplitTab: true,
+  previewLocation: 'sidebar',
   enableSyncPreview: true,
   enableTextSelection: false,
 

@@ -24,7 +24,8 @@ import { MermaidCacheManager } from './mermaidCache';
 export const MARP_DECK_VIEW_TYPE = 'marp-deck-view';
 
 interface DeckViewState {
-  file: TFile | null;
+  file?: TFile | null; // Used when setting state programmatically
+  filePath?: string;   // Used for serialization/deserialization
 }
 
 interface SearchMatch {
@@ -138,7 +139,7 @@ export class DeckView extends ItemView {
   }
 
   getIcon(): string {
-    return 'layers';
+    return 'presentation';
   }
 
   // Check if a file is a Marp presentation (has marp: true in frontmatter)
@@ -1122,16 +1123,24 @@ export class DeckView extends ItemView {
   }
 
   async setState(state: DeckViewState, result: ViewStateResult) {
+    // Handle both TFile (programmatic) and filePath (from serialized state)
     if (state.file) {
       this.file = state.file;
+    } else if (state.filePath) {
+      // Restore TFile from path (used when Obsidian restores workspace state)
+      const file = this.app.vault.getAbstractFileByPath(state.filePath);
+      if (file instanceof TFile) {
+        this.file = file;
+      }
     }
     await this.renderPreview();
     return super.setState(state, result);
   }
 
   getState(): Record<string, unknown> {
+    // Save file path as string for JSON serialization
     return {
-      file: this.file,
+      filePath: this.file?.path ?? null,
     };
   }
 }

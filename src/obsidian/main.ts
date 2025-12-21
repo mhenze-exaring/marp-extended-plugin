@@ -82,7 +82,8 @@ export default class MarpPlugin extends Plugin {
   }
 
   async onunload() {
-    this.app.workspace.detachLeavesOfType(MARP_DECK_VIEW_TYPE);
+    // Don't detach leaves on unload - let Obsidian preserve them in workspace state
+    // so the preview persists across restarts (including pinned position in sidebar)
 
     // Clean up Mermaid cache
     this.mermaidCache.destroy();
@@ -98,25 +99,42 @@ export default class MarpPlugin extends Plugin {
   }
 
   async activateView(file: TFile) {
-    this.app.workspace.detachLeavesOfType(MARP_DECK_VIEW_TYPE);
+    // Check if a Marp leaf already exists - reuse it to preserve position (e.g., pinned in sidebar)
+    const existingLeaves = this.app.workspace.getLeavesOfType(MARP_DECK_VIEW_TYPE);
+    let leaf = existingLeaves[0];
 
-    if (this.settings.createNewSplitTab) {
-      // create a preview on a new split tab
-      const leaf = this.app.workspace.getLeaf('split');
-      await leaf.setViewState({
-        type: MARP_DECK_VIEW_TYPE,
-        active: true,
-        state: { file },
-      });
-    } else {
-      // do not create new split tab, just a new tab
-      const leaf = this.app.workspace.getLeaf('tab');
-      await leaf.setViewState({
-        type: MARP_DECK_VIEW_TYPE,
-        active: true,
-        state: { file },
-      });
+    if (!leaf) {
+      // No existing leaf, create a new one based on settings
+      switch (this.settings.previewLocation) {
+        case 'sidebar': {
+          // Open in right sidebar as a new split
+          leaf = this.app.workspace.getRightLeaf(true);
+          if (!leaf) {
+            // Fallback to split tab if sidebar not available (e.g., mobile)
+            leaf = this.app.workspace.getLeaf('split');
+          }
+          break;
+        }
+        case 'split':
+          // Create a preview on a new split tab
+          leaf = this.app.workspace.getLeaf('split');
+          break;
+        case 'tab':
+        default:
+          // Create in a new tab
+          leaf = this.app.workspace.getLeaf('tab');
+          break;
+      }
     }
+
+    // Reveal the leaf (opens sidebar if collapsed, focuses tab, etc.)
+    this.app.workspace.revealLeaf(leaf);
+
+    await leaf.setViewState({
+      type: MARP_DECK_VIEW_TYPE,
+      active: true,
+      state: { file },
+    });
   }
 
   async loadSettings() {

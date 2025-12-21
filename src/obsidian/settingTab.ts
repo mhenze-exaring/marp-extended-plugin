@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import MarpPlugin from './main';
-import { MathTypesetting, MermaidTheme } from './settings';
+import { MathTypesetting, MermaidTheme, PreviewLocation } from './settings';
 
 export class MarpSettingTab extends PluginSettingTab {
   plugin: MarpPlugin;
@@ -31,15 +31,16 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Open Preview in Split Tab')
-      .setDesc(
-        'When enabled, previews open in a split tab. When disabled, a new tab is created in the same split.',
-      )
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.createNewSplitTab)
+      .setName('Preview Location')
+      .setDesc('Where to open the Marp preview.')
+      .addDropdown(dropdown =>
+        dropdown
+          .addOption('sidebar', 'Right Sidebar')
+          .addOption('split', 'Split Tab')
+          .addOption('tab', 'New Tab')
+          .setValue(this.plugin.settings.previewLocation)
           .onChange(async v => {
-            this.plugin.settings.createNewSplitTab = v;
+            this.plugin.settings.previewLocation = v as PreviewLocation;
             await this.plugin.saveSettings();
           }),
       );
