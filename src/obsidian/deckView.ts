@@ -285,6 +285,17 @@ export class DeckView extends ItemView {
     const styleEl = this.slidesContainerEl.createEl('style', {
       attr: { id: '__marp-deck-style' },
     });
+
+    // Add text selection CSS if enabled
+    if (this.settings.enableTextSelection) {
+      css += `
+        svg foreignObject * {
+          user-select: text !important;
+          -webkit-user-select: text !important;
+        }
+      `;
+    }
+
     styleEl.textContent = css;
 
     // Create content container and insert HTML

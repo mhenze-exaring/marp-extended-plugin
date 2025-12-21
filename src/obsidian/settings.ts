@@ -7,6 +7,7 @@ export interface MarpPluginSettings {
   autoReload: boolean;
   createNewSplitTab: boolean;
   enableSyncPreview: boolean;
+  enableTextSelection: boolean;
 
   // Theme settings
   themeDir: string;
@@ -30,6 +31,7 @@ export const MARP_DEFAULT_SETTINGS: MarpPluginSettings = {
   autoReload: true,
   createNewSplitTab: true,
   enableSyncPreview: true,
+  enableTextSelection: false,
 
   // Theme settings
   themeDir: 'MarpTheme',

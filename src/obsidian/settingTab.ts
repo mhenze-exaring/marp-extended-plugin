@@ -58,6 +58,18 @@ export class MarpSettingTab extends PluginSettingTab {
           }),
       );
 
+    new Setting(containerEl)
+      .setName('Enable Text Selection')
+      .setDesc('Allow selecting and copying text from the slide preview.')
+      .addToggle(toggle =>
+        toggle
+          .setValue(this.plugin.settings.enableTextSelection)
+          .onChange(async v => {
+            this.plugin.settings.enableTextSelection = v;
+            await this.plugin.saveSettings();
+          }),
+      );
+
     // Marp Rendering Settings
     containerEl.createEl('h2', { text: 'Marp Rendering' });
 
