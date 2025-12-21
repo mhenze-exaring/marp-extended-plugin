@@ -1,6 +1,6 @@
 # Marp Extended
 
-Create beautiful slide presentations using [Marp](https://marp.app/) directly within [Obsidian](https://obsidian.md/). This plugin provides live preview, export capabilities, bidirectional editor sync, Mermaid diagram support, and extended Markdown syntax for professional presentations.
+Create [beautiful slide presentations](themes/Marp%20Extended%20Design%20System%20Reference.html) using [Marp](https://marp.app/) directly within [Obsidian](https://obsidian.md/). This plugin provides live preview, export capabilities, bidirectional editor sync, Mermaid diagram support, and extended Markdown syntax for professional presentations.
 
 > **Note**: This plugin can coexist with the original Marp plugin. It uses a separate plugin ID (`marp-extended`) and settings storage.
 
