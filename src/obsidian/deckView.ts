@@ -1,4 +1,5 @@
 import {
+  Editor,
   FileSystemAdapter,
   ItemView,
   normalizePath,
@@ -51,6 +52,10 @@ export class DeckView extends ItemView {
   private searchMatches: SearchMatch[] = [];
   private currentMatchIndex: number = -1;
   private highlightElements: HTMLElement[] = [];
+
+  // Sync preview state
+  private lastSyncedSlideIndex: number = -1;
+  private slideBoundaries: number[] = []; // Line numbers where each slide starts
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -276,6 +281,11 @@ export class DeckView extends ItemView {
 
     const originContent = await this.app.vault.cachedRead(this.file);
 
+    // Calculate slide boundaries for sync preview
+    this.slideBoundaries = this.calculateSlideBoundaries(originContent);
+    // Note: Do NOT reset lastSyncedSlideIndex here - it would cause unnecessary scrolling
+    // The sync logic already handles slide changes correctly
+
     // Preprocess using core unified pipeline
     const preprocessContext: RenderPreprocessContext = {
       wikilinkResolver: this.createWikilinkResolver(),
@@ -320,18 +330,157 @@ export class DeckView extends ItemView {
 
     // Update Marp browser for custom elements
     this.marpBrowser?.update();
+
+    // Sync preview to editor cursor position after render completes
+    this.syncPreviewAfterRender();
+  }
+
+  /**
+   * Sync preview to editor after render completes.
+   * Gets the current editor cursor and scrolls to the appropriate slide.
+   */
+  private syncPreviewAfterRender() {
+    if (!this.settings.enableSyncPreview) return;
+    if (!this.file) return;
+
+    // Find the editor for our file
+    const leaves = this.app.workspace.getLeavesOfType('markdown');
+    for (const leaf of leaves) {
+      const view = leaf.view;
+      // Check if this is the editor for our file
+      if ('file' in view && (view as { file: TFile | null }).file?.path === this.file.path) {
+        if ('editor' in view) {
+          const editor = (view as { editor: Editor }).editor;
+          this.syncPreviewToEditor(editor);
+          break;
+        }
+      }
+    }
   }
 
   // Scroll to a specific slide (0-indexed)
-  scrollToSlide(slideIndex: number) {
+  scrollToSlide(slideIndex: number, forceScroll = false) {
     try {
-      // Structure: base, style, contentDiv -> slides are children of contentDiv
-      const contentEl = this.slidesContainerEl.children[2];
-      (contentEl?.children[slideIndex] as HTMLElement)?.scrollIntoView({
+      const slideEl = this.getSlideElement(slideIndex);
+      if (!slideEl) return;
+
+      // Only scroll if the slide is not at the top or force scroll is requested
+      if (!forceScroll && this.isSlideAtTop(slideIndex)) {
+        return;
+      }
+
+      // Scroll so the top of the slide aligns with the top of the viewport
+      slideEl.scrollIntoView({
         behavior: 'smooth',
+        block: 'start',
       });
     } catch {
       console.log('Preview slide not found!');
+    }
+  }
+
+  // Get the DOM element for a slide by index
+  private getSlideElement(slideIndex: number): HTMLElement | null {
+    // Find the content div that contains slide wrappers
+    // Look for the div with data-marp-vscode-slide-wrapper children
+    for (let i = 0; i < this.slidesContainerEl.children.length; i++) {
+      const child = this.slidesContainerEl.children[i];
+      // The content div contains the slide wrappers
+      if (child.children.length > 0 && child.children[0]?.hasAttribute?.('data-marp-vscode-slide-wrapper')) {
+        return (child.children[slideIndex] as HTMLElement) || null;
+      }
+    }
+
+    // Fallback: look for slides directly in container
+    const slides = this.slidesContainerEl.querySelectorAll('[data-marp-vscode-slide-wrapper]');
+    return (slides[slideIndex] as HTMLElement) || null;
+  }
+
+  // Check if a slide is at the top of the viewport (within a small tolerance)
+  private isSlideAtTop(slideIndex: number): boolean {
+    const slideEl = this.getSlideElement(slideIndex);
+    if (!slideEl) return false;
+
+    const containerRect = this.slidesContainerEl.getBoundingClientRect();
+    const slideRect = slideEl.getBoundingClientRect();
+
+    // Allow a small tolerance (e.g., 10px) for the slide to be considered "at top"
+    const tolerance = 10;
+    const isAtTop =
+      slideRect.top >= containerRect.top - tolerance &&
+      slideRect.top <= containerRect.top + tolerance;
+
+    return isAtTop;
+  }
+
+  // ===== Sync Preview functionality =====
+
+  /**
+   * Calculate slide boundaries from markdown content.
+   * Slides are separated by `---` on a line by itself (after frontmatter).
+   */
+  private calculateSlideBoundaries(content: string): number[] {
+    const lines = content.split('\n');
+    const boundaries: number[] = [0]; // First slide always starts at line 0
+
+    let inFrontmatter = false;
+    let frontmatterEnded = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      // Handle frontmatter (starts and ends with ---)
+      if (i === 0 && line === '---') {
+        inFrontmatter = true;
+        continue;
+      }
+
+      if (inFrontmatter && line === '---') {
+        inFrontmatter = false;
+        frontmatterEnded = true;
+        continue;
+      }
+
+      // Skip content inside frontmatter
+      if (inFrontmatter) continue;
+
+      // After frontmatter, --- marks a new slide
+      if (frontmatterEnded && line === '---') {
+        boundaries.push(i + 1); // Next line starts the new slide
+      }
+    }
+
+    return boundaries;
+  }
+
+  /**
+   * Get the slide index for a given line number (0-indexed).
+   */
+  private getSlideIndexForLine(lineNumber: number): number {
+    // Find the last boundary that is <= lineNumber
+    for (let i = this.slideBoundaries.length - 1; i >= 0; i--) {
+      if (this.slideBoundaries[i] <= lineNumber) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * Sync the preview to show the slide at the editor's cursor position.
+   * Only scrolls if the target slide is different and not visible.
+   */
+  private syncPreviewToEditor(editor: Editor) {
+    if (!this.settings.enableSyncPreview) return;
+    if (!this.file) return;
+
+    const cursor = editor.getCursor();
+    const slideIndex = this.getSlideIndexForLine(cursor.line);
+
+    // Only scroll if we're on a different slide
+    if (slideIndex !== this.lastSyncedSlideIndex) {
+      this.lastSyncedSlideIndex = slideIndex;
+      this.scrollToSlide(slideIndex);
     }
   }
 
@@ -833,6 +982,10 @@ export class DeckView extends ItemView {
         }
       }),
     );
+
+    // Note: Sync preview is handled at the end of renderPreview() instead of
+    // via a separate editor-change listener. This leverages the existing
+    // auto-reload debouncing and ensures sync happens after DOM is updated.
   }
 
   async onClose() {
