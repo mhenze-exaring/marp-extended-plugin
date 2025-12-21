@@ -26,6 +26,14 @@ interface DeckViewState {
   file: TFile | null;
 }
 
+interface SearchMatch {
+  element: HTMLElement;
+  textNode: Text;
+  startOffset: number;
+  endOffset: number;
+  originalText: string;
+}
+
 export class DeckView extends ItemView {
   file: TFile | null;
   settings: MarpPluginSettings;
@@ -35,6 +43,14 @@ export class DeckView extends ItemView {
   private wrapperEl: HTMLElement;
   private toolbarEl: HTMLElement;
   private slidesContainerEl: HTMLElement;
+
+  // Search state
+  private searchContainerEl: HTMLElement | null = null;
+  private searchInputEl: HTMLInputElement | null = null;
+  private searchResultsEl: HTMLElement | null = null;
+  private searchMatches: SearchMatch[] = [];
+  private currentMatchIndex: number = -1;
+  private highlightElements: HTMLElement[] = [];
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -381,6 +397,11 @@ export class DeckView extends ItemView {
       await this.loadCurrentFile();
     });
 
+    // Search button
+    this.createToolbarButton('search', 'Search in slides', () => {
+      this.openSearch();
+    });
+
     // Export buttons
     this.createToolbarButton('download', 'Export as PDF', () => {
       if (this.file)
@@ -403,6 +424,10 @@ export class DeckView extends ItemView {
       await this.loadCurrentFile();
     });
 
+    this.addAction('search', 'Search in slides', () => {
+      this.openSearch();
+    });
+
     this.addAction('download', 'Export as PDF', () => {
       if (this.file)
         exportSlide(this.app, this.file, 'pdf', this.settings.themeDir, this.getExportOptions());
@@ -416,6 +441,320 @@ export class DeckView extends ItemView {
     this.addAction('code-glyph', 'Export as HTML', () => {
       if (this.file)
         exportSlide(this.app, this.file, 'html', this.settings.themeDir, this.getExportOptions());
+    });
+  }
+
+  // ===== Search functionality =====
+
+  /**
+   * Open the search bar and focus the input
+   */
+  openSearch() {
+    if (!this.searchContainerEl) {
+      this.createSearchUI();
+    }
+    this.searchContainerEl!.style.display = 'flex';
+    this.searchInputEl?.focus();
+    this.searchInputEl?.select();
+  }
+
+  /**
+   * Close the search bar and clear highlights
+   */
+  closeSearch() {
+    if (this.searchContainerEl) {
+      this.searchContainerEl.style.display = 'none';
+    }
+    this.clearHighlights();
+    this.searchMatches = [];
+    this.currentMatchIndex = -1;
+    this.updateSearchResults();
+  }
+
+  /**
+   * Check if search is currently open
+   */
+  isSearchOpen(): boolean {
+    return (
+      this.searchContainerEl !== null &&
+      this.searchContainerEl.style.display !== 'none'
+    );
+  }
+
+  private createSearchUI() {
+    const container = this.containerEl.children[1] as HTMLElement;
+
+    // Create search bar container
+    this.searchContainerEl = container.createDiv({ cls: 'marp-search-bar' });
+    this.searchContainerEl.style.display = 'none';
+    this.searchContainerEl.style.position = 'absolute';
+    this.searchContainerEl.style.top = '0';
+    this.searchContainerEl.style.right = '0';
+    this.searchContainerEl.style.zIndex = '100';
+    this.searchContainerEl.style.padding = '8px';
+    this.searchContainerEl.style.backgroundColor = 'var(--background-secondary)';
+    this.searchContainerEl.style.borderBottomLeftRadius = '6px';
+    this.searchContainerEl.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+    this.searchContainerEl.style.alignItems = 'center';
+    this.searchContainerEl.style.gap = '6px';
+
+    // Search input
+    this.searchInputEl = this.searchContainerEl.createEl('input', {
+      type: 'text',
+      placeholder: 'Search in slides...',
+      cls: 'marp-search-input',
+    });
+    this.searchInputEl.style.width = '200px';
+    this.searchInputEl.style.padding = '4px 8px';
+    this.searchInputEl.style.border = '1px solid var(--background-modifier-border)';
+    this.searchInputEl.style.borderRadius = '4px';
+    this.searchInputEl.style.backgroundColor = 'var(--background-primary)';
+    this.searchInputEl.style.color = 'var(--text-normal)';
+
+    // Results counter
+    this.searchResultsEl = this.searchContainerEl.createSpan({
+      cls: 'marp-search-results',
+    });
+    this.searchResultsEl.style.fontSize = '12px';
+    this.searchResultsEl.style.color = 'var(--text-muted)';
+    this.searchResultsEl.style.minWidth = '60px';
+
+    // Navigation buttons
+    const prevBtn = this.searchContainerEl.createEl('button', {
+      cls: 'marp-search-btn clickable-icon',
+      attr: { 'aria-label': 'Previous match' },
+    });
+    setIcon(prevBtn, 'chevron-up');
+    prevBtn.addEventListener('click', () => this.goToPreviousMatch());
+
+    const nextBtn = this.searchContainerEl.createEl('button', {
+      cls: 'marp-search-btn clickable-icon',
+      attr: { 'aria-label': 'Next match' },
+    });
+    setIcon(nextBtn, 'chevron-down');
+    nextBtn.addEventListener('click', () => this.goToNextMatch());
+
+    // Close button
+    const closeBtn = this.searchContainerEl.createEl('button', {
+      cls: 'marp-search-btn clickable-icon',
+      attr: { 'aria-label': 'Close search' },
+    });
+    setIcon(closeBtn, 'x');
+    closeBtn.addEventListener('click', () => this.closeSearch());
+
+    // Event listeners for input
+    this.searchInputEl.addEventListener('input', () => {
+      this.performSearch(this.searchInputEl!.value);
+    });
+
+    this.searchInputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          this.goToPreviousMatch();
+        } else {
+          this.goToNextMatch();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeSearch();
+      }
+    });
+  }
+
+  private performSearch(query: string) {
+    this.clearHighlights();
+    this.searchMatches = [];
+    this.currentMatchIndex = -1;
+
+    if (!query || query.length < 1) {
+      this.updateSearchResults();
+      return;
+    }
+
+    // Search in the entire slides container - Marp renders content in various structures
+    // including SVG foreignObject elements
+    const matches = this.findTextMatches(this.slidesContainerEl, query.toLowerCase());
+    this.searchMatches = matches;
+
+    if (matches.length > 0) {
+      this.currentMatchIndex = 0;
+      this.highlightMatches();
+      this.scrollToCurrentMatch();
+    }
+
+    this.updateSearchResults();
+  }
+
+  private findTextMatches(root: HTMLElement, query: string): SearchMatch[] {
+    const matches: SearchMatch[] = [];
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node: Text) => {
+          // Skip text in style and script elements
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const tagName = parent.tagName.toLowerCase();
+          if (tagName === 'style' || tagName === 'script') {
+            return NodeFilter.FILTER_REJECT;
+          }
+          // Skip empty or whitespace-only text nodes
+          if (!node.textContent?.trim()) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      },
+    );
+
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      const text = node.textContent || '';
+      const lowerText = text.toLowerCase();
+      let startIndex = 0;
+
+      while (true) {
+        const index = lowerText.indexOf(query, startIndex);
+        if (index === -1) break;
+
+        matches.push({
+          element: node.parentElement!,
+          textNode: node,
+          startOffset: index,
+          endOffset: index + query.length,
+          originalText: text.substring(index, index + query.length),
+        });
+
+        startIndex = index + 1;
+      }
+    }
+
+    return matches;
+  }
+
+  private highlightMatches() {
+    // Clear previous highlights
+    this.clearHighlights();
+
+    // Group matches by text node to handle multiple matches in same node
+    const nodeMatches = new Map<Text, SearchMatch[]>();
+    for (const match of this.searchMatches) {
+      const existing = nodeMatches.get(match.textNode) || [];
+      existing.push(match);
+      nodeMatches.set(match.textNode, existing);
+    }
+
+    // Process each text node
+    let matchIndex = 0;
+    for (const [textNode, matches] of nodeMatches) {
+      // Sort matches by offset (descending) to process from end to start
+      matches.sort((a, b) => b.startOffset - a.startOffset);
+
+      for (const match of matches) {
+        const isCurrent = this.searchMatches.indexOf(match) === this.currentMatchIndex;
+        const highlight = this.createHighlight(
+          textNode,
+          match.startOffset,
+          match.endOffset,
+          isCurrent,
+        );
+        if (highlight) {
+          this.highlightElements.push(highlight);
+          // Update match to reference the highlight element
+          match.element = highlight;
+        }
+        matchIndex++;
+      }
+    }
+  }
+
+  private createHighlight(
+    textNode: Text,
+    start: number,
+    end: number,
+    isCurrent: boolean,
+  ): HTMLElement | null {
+    try {
+      const range = document.createRange();
+      range.setStart(textNode, start);
+      range.setEnd(textNode, end);
+
+      const highlight = document.createElement('mark');
+      highlight.className = isCurrent
+        ? 'marp-search-highlight marp-search-current'
+        : 'marp-search-highlight';
+      highlight.style.backgroundColor = isCurrent
+        ? 'var(--text-highlight-bg-active, #ff9632)'
+        : 'var(--text-highlight-bg, #ffff0080)';
+      highlight.style.color = 'inherit';
+      highlight.style.borderRadius = '2px';
+
+      range.surroundContents(highlight);
+      return highlight;
+    } catch {
+      // Range manipulation can fail in some edge cases
+      return null;
+    }
+  }
+
+  private clearHighlights() {
+    for (const highlight of this.highlightElements) {
+      const parent = highlight.parentNode;
+      if (parent) {
+        // Replace highlight with its text content
+        const text = document.createTextNode(highlight.textContent || '');
+        parent.replaceChild(text, highlight);
+        parent.normalize(); // Merge adjacent text nodes
+      }
+    }
+    this.highlightElements = [];
+  }
+
+  private updateSearchResults() {
+    if (!this.searchResultsEl) return;
+
+    if (this.searchMatches.length === 0) {
+      if (this.searchInputEl?.value) {
+        this.searchResultsEl.textContent = 'No results';
+      } else {
+        this.searchResultsEl.textContent = '';
+      }
+    } else {
+      this.searchResultsEl.textContent = `${this.currentMatchIndex + 1}/${this.searchMatches.length}`;
+    }
+  }
+
+  private goToNextMatch() {
+    if (this.searchMatches.length === 0) return;
+
+    this.currentMatchIndex = (this.currentMatchIndex + 1) % this.searchMatches.length;
+    this.highlightMatches();
+    this.scrollToCurrentMatch();
+    this.updateSearchResults();
+  }
+
+  private goToPreviousMatch() {
+    if (this.searchMatches.length === 0) return;
+
+    this.currentMatchIndex =
+      (this.currentMatchIndex - 1 + this.searchMatches.length) %
+      this.searchMatches.length;
+    this.highlightMatches();
+    this.scrollToCurrentMatch();
+    this.updateSearchResults();
+  }
+
+  private scrollToCurrentMatch() {
+    if (this.currentMatchIndex < 0 || this.currentMatchIndex >= this.searchMatches.length) {
+      return;
+    }
+
+    const match = this.searchMatches[this.currentMatchIndex];
+    match.element.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
     });
   }
 
