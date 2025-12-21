@@ -279,7 +279,11 @@ export class DeckView extends ItemView {
   }
 
   async renderPreview() {
-    if (!this.file) return;
+    // Show placeholder if no file or not a Marp presentation
+    if (!this.file || !(await this.isMarpPresentation(this.file))) {
+      this.showPlaceholder();
+      return;
+    }
 
     const originContent = await this.app.vault.cachedRead(this.file);
 
@@ -338,6 +342,53 @@ export class DeckView extends ItemView {
 
     // Sync preview to editor cursor position after render completes
     this.syncPreviewAfterRender();
+  }
+
+  /**
+   * Show placeholder message when no Marp presentation is selected
+   */
+  private showPlaceholder() {
+    this.slidesContainerEl.empty();
+    this.activeSlideStyleEl = null;
+
+    const placeholderEl = this.slidesContainerEl.createDiv({
+      cls: 'marp-placeholder',
+    });
+
+    placeholderEl.createEl('div', {
+      text: 'Select a Marp Presentation!',
+      cls: 'marp-placeholder-title',
+    });
+
+    placeholderEl.createEl('div', {
+      text: '(marp: true in the frontmatter)',
+      cls: 'marp-placeholder-subtitle',
+    });
+
+    // Add placeholder styles
+    const styleEl = this.slidesContainerEl.createEl('style');
+    styleEl.textContent = `
+      .marp-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-muted);
+      }
+      .marp-placeholder-title {
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+      }
+      .marp-placeholder-subtitle {
+        font-size: 0.9rem;
+        font-family: var(--font-monospace);
+        opacity: 0.8;
+      }
+    `;
   }
 
   /**
@@ -1099,15 +1150,24 @@ export class DeckView extends ItemView {
       }),
     );
 
-    // Auto-load Marp presentations when switching files (if no file is loaded)
+    // Auto-load Marp presentations when switching files
+    // Behavior depends on followActiveFile setting:
+    // - false (default): Only loads when no Marp file is showing (locks to first presentation)
+    // - true: Always switches to the active Marp presentation
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', async () => {
-        if (!this.file) {
+        const currentIsMarp = this.file && (await this.isMarpPresentation(this.file));
+        const shouldSwitch = this.settings.followActiveFile || !currentIsMarp;
+
+        if (shouldSwitch) {
           const activeFile = this.app.workspace.getActiveFile();
           if (activeFile && (await this.isMarpPresentation(activeFile))) {
-            await this.reinitializeMarp();
-            this.file = activeFile;
-            await this.renderPreview();
+            // Don't switch if it's already the same file
+            if (activeFile.path !== this.file?.path) {
+              await this.reinitializeMarp();
+              this.file = activeFile;
+              await this.renderPreview();
+            }
           }
         }
       }),

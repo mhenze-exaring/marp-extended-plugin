@@ -71,6 +71,20 @@ export class MarpSettingTab extends PluginSettingTab {
           }),
       );
 
+    new Setting(containerEl)
+      .setName('Follow Active File')
+      .setDesc(
+        'Automatically switch the preview to show the active Marp presentation. When disabled, the preview stays locked to the first presentation.',
+      )
+      .addToggle(toggle =>
+        toggle
+          .setValue(this.plugin.settings.followActiveFile)
+          .onChange(async v => {
+            this.plugin.settings.followActiveFile = v;
+            await this.plugin.saveSettings();
+          }),
+      );
+
     // Marp Rendering Settings
     containerEl.createEl('h2', { text: 'Marp Rendering' });
 

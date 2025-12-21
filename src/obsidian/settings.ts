@@ -10,6 +10,7 @@ export interface MarpPluginSettings {
   previewLocation: PreviewLocation;
   enableSyncPreview: boolean;
   enableTextSelection: boolean;
+  followActiveFile: boolean;
 
   // Theme settings
   themeDir: string;
@@ -34,6 +35,7 @@ export const MARP_DEFAULT_SETTINGS: MarpPluginSettings = {
   previewLocation: 'sidebar',
   enableSyncPreview: true,
   enableTextSelection: false,
+  followActiveFile: false,
 
   // Theme settings
   themeDir: 'MarpTheme',
