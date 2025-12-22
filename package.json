@@ -16,7 +16,7 @@
 		"build:quick": "node esbuild.config.mjs production",
 		"build:cli": "node esbuild.config.mjs production --cli",
 		"build:all": "npm run build && npm run build:cli",
-		"deploy": "npm run build:quick && cp -r dist/obsidian/. /home/mhenze/obsidian/exaring/.obsidian/plugins/marp-extended/",
+		"deploy": "npm run build:quick && cp -r dist/obsidian/. dev-vault/.obsidian/plugins/marp-extended/",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"test": "vitest run",
 		"test:watch": "vitest"

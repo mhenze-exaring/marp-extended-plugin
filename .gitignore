@@ -10,6 +10,7 @@ node_modules
 
 # Build output - should be uploaded to GitHub releases instead
 dist/
+dev-vault/
 
 # Exclude sourcemaps
 *.map
