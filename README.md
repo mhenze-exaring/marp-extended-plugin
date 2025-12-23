@@ -37,7 +37,7 @@ Optional sizing: `w:400` (width) or `h:300` (height) in pixels or percentages.
 
 ### Local Images
 
-YOu can include local images from your vault.
+You can include local images from your vault.
 
 Optional sizing: `w:400` (width) or `h:300` (height) in pixels or percentages.
 
