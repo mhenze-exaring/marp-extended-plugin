@@ -1,9 +1,9 @@
 {
 	"id": "marp-extended",
 	"name": "Marp Extended",
-	"version": "0.2",
+	"version": "0.2.1",
 	"minAppVersion": "1.0.0",
-	"description": "Plugin for using Marp with extended features on Obsidian. Based on JichouP's obsidian-marp-plugin.",
+	"description": "Edit and navigate Marp files with ease and use extended features.",
 	"author": "JichouP, Mathias Henze & Claude",
 	"authorUrl": "https://github.com/mhenze-exaring",
 	"isDesktopOnly": true
