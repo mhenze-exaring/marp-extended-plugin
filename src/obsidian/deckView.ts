@@ -20,6 +20,7 @@ import {
   type RenderPreprocessContext,
 } from '../core';
 import { MermaidCacheManager } from './mermaidCache';
+import type { ViewUpdate } from '@codemirror/view';
 
 export const MARP_DECK_VIEW_TYPE = 'marp-ext-deck-view';
 
@@ -58,6 +59,9 @@ export class DeckView extends ItemView {
   private lastSyncedSlideIndex: number = -1;
   private slideBoundaries: number[] = []; // Line numbers where each slide starts
   private activeSlideStyleEl: HTMLStyleElement | null = null;
+  private syncDebounceTimeout: number | null = null;
+  private lastEditorLineCount: number = -1; // Track line count to detect content changes
+  private static readonly SYNC_DEBOUNCE_MS = 250;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -302,13 +306,16 @@ export class DeckView extends ItemView {
     // Empty and reinitialize slides container only
     this.slidesContainerEl.empty();
     this.activeSlideStyleEl = null; // Reset since container was emptied
+    this.lastSyncedSlideIndex = -1; // Reset to force re-highlight after render
     this.marpBrowser = browser(this.slidesContainerEl);
 
     let { html, css } = this.marp.render(content);
 
-    // Extract slide boundaries from Marp's internal token data
-    // This is more robust than parsing --- manually (handles code blocks, mermaid, etc.)
-    this.slideBoundaries = this.extractSlideBoundariesFromMarp();
+    // Extract slide boundaries from original content (not preprocessed)
+    // to get correct line numbers matching the editor
+    this.slideBoundaries = this.extractSlideBoundariesFromContent(originContent);
+    // Track line count so cursor-change handler knows when content has changed
+    this.lastEditorLineCount = originContent.split('\n').length;
 
     // Resolve all relative image paths (preview-specific: app:// URLs)
     html = this.resolveHtmlImagePaths(html, fileDir);
@@ -614,41 +621,62 @@ export class DeckView extends ItemView {
   // ===== Sync Preview functionality =====
 
   /**
-   * Extract slide boundaries from Marp's internal token data after render.
-   * This is more robust than manual --- parsing as it handles code blocks,
-   * mermaid diagrams, and other edge cases correctly.
+   * Extract slide boundaries from the original markdown content.
+   * Parses --- slide separators while correctly handling:
+   * - Frontmatter (skipped)
+   * - Code blocks (--- inside them is not a separator)
+   *
+   * Uses original content to get correct line numbers matching the editor.
    */
-  private extractSlideBoundariesFromMarp(): number[] {
-    // Access Marp's protected lastSlideTokens after render()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const slideTokens = (this.marp as any).lastSlideTokens as any[] | undefined;
-
-    if (!slideTokens || slideTokens.length === 0) {
-      return [0]; // Fallback: single slide starting at line 0
-    }
-
+  private extractSlideBoundariesFromContent(content: string): number[] {
+    const lines = content.split('\n');
     const boundaries: number[] = [];
+    let inCodeBlock = false;
+    let inFrontmatter = false;
+    let frontmatterEnded = false;
 
-    for (const tokens of slideTokens) {
-      // Each slide's tokens array - find the opening token with map info
-      if (Array.isArray(tokens) && tokens.length > 0) {
-        // The first token usually has the slide's starting line
-        const firstToken = tokens[0];
-        if (firstToken?.map && Array.isArray(firstToken.map)) {
-          boundaries.push(firstToken.map[0]); // Start line of this slide
-        } else {
-          // Fallback: look for any token with map info
-          for (const token of tokens) {
-            if (token?.map && Array.isArray(token.map)) {
-              boundaries.push(token.map[0]);
-              break;
-            }
-          }
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      // Check for code block toggle (``` or ~~~)
+      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+        inCodeBlock = !inCodeBlock;
+        continue;
+      }
+
+      // Skip content inside code blocks
+      if (inCodeBlock) continue;
+
+      // Handle frontmatter (only at the very start)
+      if (i === 0 && trimmed === '---') {
+        inFrontmatter = true;
+        continue;
+      }
+
+      if (inFrontmatter) {
+        if (trimmed === '---') {
+          inFrontmatter = false;
+          frontmatterEnded = true;
+          // First slide starts after frontmatter
+          boundaries.push(i + 1);
         }
+        continue;
+      }
+
+      // Check for slide separator (--- on its own line, possibly with trailing dashes)
+      if (/^-{3,}$/.test(trimmed)) {
+        // This is a slide separator - next line starts a new slide
+        boundaries.push(i + 1);
       }
     }
 
-    // Ensure we have at least slide 0
+    // If no frontmatter, first slide starts at line 0
+    if (!frontmatterEnded && boundaries.length === 0) {
+      boundaries.unshift(0);
+    }
+
+    // Ensure we have at least one boundary
     if (boundaries.length === 0) {
       return [0];
     }
@@ -681,13 +709,74 @@ export class DeckView extends ItemView {
     const cursor = editor.getCursor();
     const slideIndex = this.getSlideIndexForLine(cursor.line);
 
-    // Ensure styles are injected
-    this.ensureActiveSlideStyles();
+    // Only do anything if we're on a different slide
+    if (slideIndex !== this.lastSyncedSlideIndex) {
+      this.ensureActiveSlideStyles();
+      this.highlightActiveSlide(slideIndex);
+      this.lastSyncedSlideIndex = slideIndex;
+      this.scrollToSlide(slideIndex);
+    }
+  }
 
-    // Always highlight the active slide (even if we don't scroll)
+  /**
+   * Public handler for editor selection/cursor changes.
+   * Called from the CodeMirror extension registered in main.ts.
+   * Debounces the sync to avoid excessive updates during rapid cursor movement.
+   */
+  onEditorSelectionChange(_update: ViewUpdate) {
+    if (!this.settings.enableSyncPreview) return;
+    if (!this.file) return;
+
+    // Clear any pending sync
+    if (this.syncDebounceTimeout !== null) {
+      window.clearTimeout(this.syncDebounceTimeout);
+    }
+
+    // Schedule a new sync
+    this.syncDebounceTimeout = window.setTimeout(async () => {
+      this.syncDebounceTimeout = null;
+
+      // Get cursor position from Obsidian's Editor API (handles edge cases like tables)
+      const leaves = this.app.workspace.getLeavesOfType('markdown');
+      for (const leaf of leaves) {
+        const view = leaf.view;
+        if (
+          'file' in view &&
+          (view as { file: TFile | null }).file?.path === this.file?.path
+        ) {
+          if ('editor' in view) {
+            const editor = (view as { editor: Editor }).editor;
+
+            // Only re-parse slide boundaries if document length changed
+            // (indicates paste/edit rather than just cursor movement)
+            const currentLineCount = editor.lineCount();
+            if (currentLineCount !== this.lastEditorLineCount) {
+              const currentContent = editor.getValue();
+              this.slideBoundaries = this.extractSlideBoundariesFromContent(currentContent);
+              this.lastEditorLineCount = currentLineCount;
+            }
+
+            const cursor = editor.getCursor();
+            this.syncPreviewToLine(cursor.line);
+            break;
+          }
+        }
+      }
+    }, DeckView.SYNC_DEBOUNCE_MS);
+  }
+
+  /**
+   * Sync the preview to show the slide containing the given line number.
+   */
+  private syncPreviewToLine(lineNumber: number) {
+    if (!this.settings.enableSyncPreview) return;
+    if (!this.file) return;
+
+    const slideIndex = this.getSlideIndexForLine(lineNumber);
+
+    this.ensureActiveSlideStyles();
     this.highlightActiveSlide(slideIndex);
 
-    // Only scroll if we're on a different slide
     if (slideIndex !== this.lastSyncedSlideIndex) {
       this.lastSyncedSlideIndex = slideIndex;
       this.scrollToSlide(slideIndex);
@@ -1201,13 +1290,14 @@ export class DeckView extends ItemView {
         }
       }),
     );
-
-    // Note: Sync preview is handled at the end of renderPreview() instead of
-    // via a separate editor-change listener. This leverages the existing
-    // auto-reload debouncing and ensures sync happens after DOM is updated.
   }
 
   async onClose() {
+    // Clean up debounce timeout
+    if (this.syncDebounceTimeout !== null) {
+      window.clearTimeout(this.syncDebounceTimeout);
+      this.syncDebounceTimeout = null;
+    }
     this.marpBrowser?.cleanup();
   }
 

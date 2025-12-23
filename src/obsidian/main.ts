@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
+import { FileSystemAdapter, Notice, Plugin, TFile, WorkspaceLeaf, editorViewField } from 'obsidian';
 import { MARP_DEFAULT_SETTINGS, MarpPluginSettings } from './settings';
 import { MARP_DECK_VIEW_TYPE, DeckView } from './deckView';
 import { MarpSettingTab } from './settingTab';
@@ -10,6 +10,7 @@ import {
   MermaidCacheManager,
   destroyMermaidCacheManager,
 } from './mermaidCache';
+import { EditorView, ViewUpdate } from '@codemirror/view';
 
 export default class MarpPlugin extends Plugin {
   settings: MarpPluginSettings;
@@ -54,6 +55,30 @@ export default class MarpPlugin extends Plugin {
       leaf => new DeckView(leaf, this.settings, this.mermaidCache),
     );
     this.addSettingTab(new MarpSettingTab(this.app, this));
+
+    // Register CodeMirror extension for cursor/selection change tracking
+    this.registerEditorExtension(
+      EditorView.updateListener.of((update: ViewUpdate) => {
+        // Only react to selection changes (cursor movement)
+        if (!update.selectionSet) return;
+
+        // Get the MarkdownView from the editor state
+        const markdownView = update.state.field(editorViewField);
+        if (!markdownView) return;
+
+        const file = markdownView.file;
+        if (!file) return;
+
+        // Notify all DeckViews about the cursor change
+        const deckViews = this.app.workspace.getLeavesOfType(MARP_DECK_VIEW_TYPE);
+        for (const leaf of deckViews) {
+          const view = leaf.view as DeckView;
+          if (view.file?.path === file.path) {
+            view.onEditorSelectionChange(update);
+          }
+        }
+      }),
+    );
 
     // load marp themes
     {

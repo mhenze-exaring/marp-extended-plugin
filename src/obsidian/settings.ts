@@ -34,16 +34,16 @@ export const MARP_DEFAULT_SETTINGS: MarpPluginSettings = {
   autoReload: true,
   previewLocation: 'sidebar',
   enableSyncPreview: true,
-  enableTextSelection: false,
-  followActiveFile: false,
+  enableTextSelection: true,
+  followActiveFile: true,
 
   // Theme settings
   themeDir: 'MarpTheme',
 
   // Marp rendering options
-  enableHTML: false,
+  enableHTML: true,
   mathTypesetting: 'mathjax',
-  enableMarkdownItPlugins: false,
+  enableMarkdownItPlugins: true,
 
   // Mermaid settings
   enableMermaid: true,
