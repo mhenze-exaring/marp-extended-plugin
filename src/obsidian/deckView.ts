@@ -1222,13 +1222,14 @@ export class DeckView extends ItemView {
     );
   }
 
-  onClose() {
+  onClose(): Promise<void> {
     // Clean up debounce timeout
     if (this.syncDebounceTimeout !== null) {
       window.clearTimeout(this.syncDebounceTimeout);
       this.syncDebounceTimeout = null;
     }
     this.marpBrowser?.cleanup();
+    return Promise.resolve();
   }
 
   async setState(state: DeckViewState, result: ViewStateResult) {

@@ -284,7 +284,8 @@ export function genericContainerPlugin(md: MarkdownIt): void {
 
     const old_parent = state.parentType;
     const old_line_max = state.lineMax;
-    state.parentType = 'container';
+    // 'container' is used internally but not in official type definition
+    state.parentType = 'paragraph';
     state.lineMax = nextLine;
 
     // Create opening token with parsed attributes
@@ -404,7 +405,6 @@ export function markPlugin(md: MarkdownIt): void {
       state.delimiters.push({
         marker,
         length: 0,
-        jump: i / 2,
         token: state.tokens.length - 1,
         end: -1,
         open: scanned.can_open,
@@ -416,7 +416,7 @@ export function markPlugin(md: MarkdownIt): void {
     return true;
   }
 
-  function postProcess(state: MarkdownIt.StateInline, delimiters: MarkdownIt.Delimiter[]): void {
+  function postProcess(state: MarkdownIt.StateInline, delimiters: MarkdownIt.StateInline.Delimiter[]): void {
     const loneMarkers: number[] = [];
     const max = delimiters.length;
 
@@ -481,8 +481,9 @@ export function markPlugin(md: MarkdownIt): void {
     postProcess(state, state.delimiters);
 
     for (let curr = 0; curr < max; curr++) {
-      if (tokens_meta[curr] && tokens_meta[curr].delimiters) {
-        postProcess(state, tokens_meta[curr].delimiters);
+      const meta = tokens_meta[curr];
+      if (meta && meta.delimiters) {
+        postProcess(state, meta.delimiters);
       }
     }
     return true;

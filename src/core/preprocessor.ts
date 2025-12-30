@@ -256,10 +256,10 @@ export async function preprocessMermaid(
   }
 
   const matches: MermaidBlockMatch[] = rawMatches
-    .filter((match): match is RegExpMatchArray & { index: number } => match.index !== undefined)
+    .filter((match) => match.index !== undefined)
     .map((match) => ({
       fullMatch: match[0],
-      index: match.index,
+      index: match.index as number,
       sizeType: (match[1] === 'w' || match[1] === 'h') ? match[1] : null,
       sizeValue: match[2] || null,
       code: match[3],
