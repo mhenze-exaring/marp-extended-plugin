@@ -42,8 +42,8 @@ export class MermaidCacheManager implements DiagramRenderer {
    * Must be called before rendering.
    * Returns Promise for DiagramRenderer interface compatibility.
    */
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
+  initialize(): Promise<void> {
+    if (this.initialized) return Promise.resolve();
 
     mermaid.initialize({
       startOnLoad: false,
@@ -53,6 +53,7 @@ export class MermaidCacheManager implements DiagramRenderer {
     });
 
     this.initialized = true;
+    return Promise.resolve();
   }
 
   /**
@@ -90,11 +91,9 @@ export class MermaidCacheManager implements DiagramRenderer {
     }
 
     // Create hidden container for rendering
+    // Uses CSS class from styles.css for positioning
     this.renderContainer = document.createElement('div');
-    this.renderContainer.style.position = 'absolute';
-    this.renderContainer.style.left = '-9999px';
-    this.renderContainer.style.top = '-9999px';
-    this.renderContainer.style.visibility = 'hidden';
+    this.renderContainer.className = 'marp-ext-mermaid-container';
     document.body.appendChild(this.renderContainer);
 
     return this.renderContainer;
@@ -157,7 +156,12 @@ export class MermaidCacheManager implements DiagramRenderer {
    */
   private svgToDataUri(svg: string): string {
     // Encode the SVG as base64
-    const base64 = btoa(unescape(encodeURIComponent(svg)));
+    // Use decodeURIComponent with a replace pattern instead of deprecated unescape
+    const encoded = encodeURIComponent(svg).replace(
+      /%([0-9A-F]{2})/g,
+      (_, p1) => String.fromCharCode(parseInt(p1, 16)),
+    );
+    const base64 = btoa(encoded);
     return `data:image/svg+xml;base64,${base64}`;
   }
 

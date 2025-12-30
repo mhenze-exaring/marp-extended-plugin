@@ -255,13 +255,15 @@ export async function preprocessMermaid(
     return markdown;
   }
 
-  const matches: MermaidBlockMatch[] = rawMatches.map((match) => ({
-    fullMatch: match[0],
-    index: match.index!,
-    sizeType: (match[1] as 'w' | 'h') || null,
-    sizeValue: match[2] || null,
-    code: match[3],
-  }));
+  const matches: MermaidBlockMatch[] = rawMatches
+    .filter((match): match is RegExpMatchArray & { index: number } => match.index !== undefined)
+    .map((match) => ({
+      fullMatch: match[0],
+      index: match.index,
+      sizeType: (match[1] === 'w' || match[1] === 'h') ? match[1] : null,
+      sizeValue: match[2] || null,
+      code: match[3],
+    }));
 
   // Render all diagrams in parallel for performance
   const svgs = await Promise.all(matches.map((m) => renderer.render(m.code)));
@@ -318,14 +320,16 @@ export async function preprocessPlantUML(
   for (let i = matches.length - 1; i >= 0; i--) {
     const match = matches[i];
     const svg = svgs[i];
+    const matchIndex = match.index;
+    if (matchIndex === undefined) continue;
 
     const dataUri = svgToDataUri(svg);
     const replacement = `<img src="${dataUri}" alt="PlantUML diagram">`;
 
     result =
-      result.substring(0, match.index!) +
+      result.substring(0, matchIndex) +
       replacement +
-      result.substring(match.index! + match[0].length);
+      result.substring(matchIndex + match[0].length);
   }
 
   return result;

@@ -33,11 +33,11 @@ export interface ExportOptions {
  * Get the default export directory (user's Downloads folder)
  */
 function getExportDir(): string {
-  return join(
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    process.env[process.platform == 'win32' ? 'USERPROFILE' : 'HOME']!,
-    'Downloads',
-  );
+  const homeDir = process.env[process.platform == 'win32' ? 'USERPROFILE' : 'HOME'];
+  if (!homeDir) {
+    throw new Error('Could not determine home directory');
+  }
+  return join(homeDir, 'Downloads');
 }
 
 /**
@@ -119,7 +119,7 @@ export async function exportSlide(
     wikilinkResolver: (name) => name, // Return filename as-is for embedding
     tempDir: exportDir, // Use export dir for temp files
     onProgress: (message) => {
-      console.log(`[Marp Export] ${message}`);
+      console.debug(`[Marp Export] ${message}`);
     },
     onError: (error) => {
       new Notice(`Export failed: ${error.message}`, 10000);

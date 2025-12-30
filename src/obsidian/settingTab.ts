@@ -15,11 +15,11 @@ export class MarpSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    // Preview Settings
-    containerEl.createEl('h2', { text: 'Preview Settings' });
+    // Preview section
+    new Setting(containerEl).setName('Preview').setHeading();
 
     new Setting(containerEl)
-      .setName('Enable Auto Reload')
+      .setName('Enable auto reload')
       .setDesc(
         'Automatically reload the preview when the file is saved.',
       )
@@ -31,13 +31,13 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Preview Location')
+      .setName('Preview location')
       .setDesc('Where to open the Marp preview.')
       .addDropdown(dropdown =>
         dropdown
-          .addOption('sidebar', 'Right Sidebar')
-          .addOption('split', 'Split Tab')
-          .addOption('tab', 'New Tab')
+          .addOption('sidebar', 'Right sidebar')
+          .addOption('split', 'Split tab')
+          .addOption('tab', 'New tab')
           .setValue(this.plugin.settings.previewLocation)
           .onChange(async v => {
             this.plugin.settings.previewLocation = v as PreviewLocation;
@@ -46,7 +46,7 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Enable Sync Preview')
+      .setName('Enable sync preview')
       .setDesc(
         'Sync the preview scroll position with the editor cursor position.',
       )
@@ -60,7 +60,7 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Enable Text Selection')
+      .setName('Enable text selection')
       .setDesc('Allow selecting and copying text from the slide preview.')
       .addToggle(toggle =>
         toggle
@@ -72,7 +72,7 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Follow Active File')
+      .setName('Follow active file')
       .setDesc(
         'Automatically switch the preview to show the active Marp presentation. When disabled, the preview stays locked to the first presentation.',
       )
@@ -85,8 +85,8 @@ export class MarpSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Marp Rendering Settings
-    containerEl.createEl('h2', { text: 'Marp Rendering' });
+    // Marp rendering section
+    new Setting(containerEl).setName('Marp rendering').setHeading();
 
     new Setting(containerEl)
       .setName('Enable HTML')
@@ -101,7 +101,7 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Math Typesetting')
+      .setName('Math typesetting')
       .setDesc('Choose the math rendering engine for LaTeX equations.')
       .addDropdown(dropdown =>
         dropdown
@@ -117,9 +117,9 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Markdown-It Plugins')
+      .setName('Markdown-it plugins')
       .setDesc(
-        '(Experimental) Enable Markdown-It plugins (Container, Mark). Adds support for ::: container blocks and ==highlighted text== syntax.',
+        '(Experimental) Enable markdown-it plugins (Container, Mark). Adds support for ::: container blocks and ==highlighted text== syntax.',
       )
       .addToggle(toggle =>
         toggle
@@ -130,8 +130,8 @@ export class MarpSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Mermaid Settings
-    containerEl.createEl('h2', { text: 'Mermaid Diagrams' });
+    // Mermaid section
+    new Setting(containerEl).setName('Mermaid diagrams').setHeading();
 
     new Setting(containerEl)
       .setName('Enable Mermaid')
@@ -148,7 +148,7 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Mermaid Theme')
+      .setName('Mermaid theme')
       .setDesc('Visual theme for Mermaid diagrams.')
       .addDropdown(dropdown =>
         dropdown
@@ -165,11 +165,11 @@ export class MarpSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Theme Settings
-    containerEl.createEl('h2', { text: 'Theme Settings' });
+    // Themes section
+    new Setting(containerEl).setName('Themes').setHeading();
 
     new Setting(containerEl)
-      .setName('Theme Folder Location')
+      .setName('Theme folder location')
       .setDesc(
         'Relative path to the directory containing custom Marp theme CSS files. Restart Obsidian after adding new themes.',
       )
@@ -183,11 +183,11 @@ export class MarpSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Export Settings
-    containerEl.createEl('h2', { text: 'Export Settings' });
+    // Export section
+    new Setting(containerEl).setName('Export').setHeading();
 
     new Setting(containerEl)
-      .setName('Export Path')
+      .setName('Export path')
       .setDesc(
         'Custom directory for exported files. Leave empty to use the Downloads folder.',
       )
@@ -202,7 +202,7 @@ export class MarpSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Chrome/Chromium Path')
+      .setName('Chrome/Chromium path')
       .setDesc(
         'Path to Chrome or Chromium executable for PDF/PPTX export. Leave empty to use system default.',
       )

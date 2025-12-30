@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Notice, Plugin, TFile, WorkspaceLeaf, editorViewField } from 'obsidian';
+import { FileSystemAdapter, Notice, Plugin, TFile, WorkspaceLeaf, editorInfoField } from 'obsidian';
 import { MARP_DEFAULT_SETTINGS, MarpPluginSettings } from './settings';
 import { MARP_DECK_VIEW_TYPE, DeckView } from './deckView';
 import { MarpSettingTab } from './settingTab';
@@ -35,8 +35,7 @@ export default class MarpPlugin extends Plugin {
       await this.activateView(file);
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const that = this;
+    const that = this; // Reference for use in command callbacks
 
     // Command for preview
     this.addCommand({
@@ -62,11 +61,11 @@ export default class MarpPlugin extends Plugin {
         // Only react to selection changes (cursor movement)
         if (!update.selectionSet) return;
 
-        // Get the MarkdownView from the editor state
-        const markdownView = update.state.field(editorViewField);
-        if (!markdownView) return;
+        // Get the EditorInfo from the editor state
+        const editorInfo = update.state.field(editorInfoField);
+        if (!editorInfo) return;
 
-        const file = markdownView.file;
+        const file = editorInfo.file;
         if (!file) return;
 
         // Notify all DeckViews about the cursor change
@@ -106,7 +105,7 @@ export default class MarpPlugin extends Plugin {
     }
   }
 
-  async onunload() {
+  onunload() {
     // Don't detach leaves on unload - let Obsidian preserve them in workspace state
     // so the preview persists across restarts (including pinned position in sidebar)
 

@@ -141,8 +141,8 @@ program
     const passThrough = program.args.slice(1); // Everything after input file
 
     if (verbose) {
-      console.log('Config:', JSON.stringify(config, null, 2));
-      console.log('Pass-through args:', passThrough);
+      console.debug('Config:', JSON.stringify(config, null, 2));
+      console.debug('Pass-through args:', passThrough);
     }
 
     // Resolve input path
@@ -160,7 +160,7 @@ program
     }
 
     if (verbose) {
-      console.log(`Processing: ${inputPath}`);
+      console.debug(`Processing: ${inputPath}`);
     }
 
     // Determine output path
@@ -213,7 +213,7 @@ program
       getMimeType: (path) => mimes.getType(path),
       mermaidRenderer,
       plantumlRenderer,
-      onProgress: verbose ? (msg) => console.log(msg) : undefined,
+      onProgress: verbose ? (msg) => console.debug(msg) : undefined,
       onError: (err) => console.error(err.message),
     };
 
@@ -221,7 +221,7 @@ program
     const result = await exportPresentation(markdown, exportConfig, exportContext);
 
     if (result.success) {
-      console.log(`Exported: ${result.outputPath}`);
+      console.debug(`Exported: ${result.outputPath}`);
     } else {
       console.error('Export failed');
       process.exit(1);

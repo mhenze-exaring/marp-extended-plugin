@@ -199,9 +199,8 @@ export function genericContainerPlugin(md: MarkdownIt): void {
   const marker_char = marker_str.charCodeAt(0);
   const marker_len = marker_str.length;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function container(
-    state: any,
+    state: MarkdownIt.StateBlock,
     startLine: number,
     endLine: number,
     silent: boolean,
@@ -368,8 +367,7 @@ export function genericContainerPlugin(md: MarkdownIt): void {
  * Usage: ==highlighted text==
  */
 export function markPlugin(md: MarkdownIt): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function tokenize(state: any, silent: boolean): boolean {
+  function tokenize(state: MarkdownIt.StateInline, silent: boolean): boolean {
     const start = state.pos;
     const marker = state.src.charCodeAt(start);
 
@@ -418,8 +416,7 @@ export function markPlugin(md: MarkdownIt): void {
     return true;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function postProcess(state: any, delimiters: any[]): void {
+  function postProcess(state: MarkdownIt.StateInline, delimiters: MarkdownIt.Delimiter[]): void {
     const loneMarkers: number[] = [];
     const max = delimiters.length;
 
@@ -477,8 +474,7 @@ export function markPlugin(md: MarkdownIt): void {
   }
 
   md.inline.ruler.before('emphasis', 'mark', tokenize);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  md.inline.ruler2.before('emphasis', 'mark', function (state: any): boolean {
+  md.inline.ruler2.before('emphasis', 'mark', function (state: MarkdownIt.StateInline): boolean {
     const tokens_meta = state.tokens_meta;
     const max = (state.tokens_meta || []).length;
 
