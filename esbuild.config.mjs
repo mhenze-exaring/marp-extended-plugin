@@ -117,8 +117,9 @@ async function buildObsidianPlugin() {
     await context.rebuild();
     await context.dispose();
 
-    // Copy manifest.json to dist/obsidian
+    // Copy manifest.json and styles.css to dist/obsidian
     copyFileSync('manifest.json', 'dist/obsidian/manifest.json');
+    copyFileSync('styles.css', 'dist/obsidian/styles.css');
 
     console.log('Obsidian plugin built successfully: dist/obsidian/');
   } else {
