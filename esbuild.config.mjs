@@ -16,61 +16,11 @@ marp-extended CLI - Marp with extended syntax support
 `;
 
 const prod = process.argv[2] === 'production';
-const buildCli = process.argv.includes('--cli');
-const buildObsidian = process.argv.includes('--obsidian') || !buildCli;
-
-// Build markdownItPlugins.ts to a standalone JS string for use in marp-cli engine
-async function buildMarkdownItPluginsString() {
-  const result = await esbuild.build({
-    entryPoints: ['src/core/markdownItPlugins.ts'],
-    bundle: true,
-    write: false,
-    format: 'cjs',
-    minify: false, // Keep readable for debugging
-    target: 'es2018',
-  });
-
-  let code = result.outputFiles[0].text;
-
-  // The CJS output exports containerPlugin and markPlugin
-  // We need to extract them as standalone functions for the engine
-  // Replace the exports with variable declarations that the engine can use
-  code = code
-    .replace(/module\.exports\s*=\s*__toCommonJS\(.*?\);?/, '')
-    .replace(/__export\(markdownItPlugins_exports,\s*\{[^}]+\}\);/, '');
-
-  // Add assignments to make the functions available as generic_container_plugin and mark_plugin
-  // Note: marpDirectivePlugin is NOT included - it's handled as a pre-processor
-  // because Marp parses directives from raw markdown before markdown-it runs
-  code += `
-var generic_container_plugin = genericContainerPlugin;
-var mark_plugin = markPlugin;
-`;
-
-  return code;
-}
-
-// Plugin to inject the compiled markdown-it plugins as a string
-const markdownItPluginsPlugin = {
-  name: 'markdown-it-plugins-string',
-  setup(build) {
-    build.onResolve({ filter: /^markdown-it-plugins-string$/ }, (args) => ({
-      path: args.path,
-      namespace: 'markdown-it-plugins-string',
-    }));
-
-    build.onLoad(
-      { filter: /.*/, namespace: 'markdown-it-plugins-string' },
-      async () => {
-        const pluginsCode = await buildMarkdownItPluginsString();
-        return {
-          contents: `export const markdownItPluginsCode = ${JSON.stringify(pluginsCode)};`,
-          loader: 'js',
-        };
-      },
-    );
-  },
-};
+const cliOnly = process.argv.includes('--cli');
+const obsidianOnly = process.argv.includes('--obsidian');
+// Default: build both unless one is explicitly specified
+const buildCli = cliOnly || (!cliOnly && !obsidianOnly);
+const buildObsidian = obsidianOnly || (!cliOnly && !obsidianOnly);
 
 // Build Obsidian plugin
 async function buildObsidianPlugin() {
@@ -110,16 +60,16 @@ async function buildObsidianPlugin() {
     treeShaking: true,
     outfile: 'dist/obsidian/main.js',
     minify: prod,
-    plugins: [markdownItPluginsPlugin],
   });
 
   if (prod) {
     await context.rebuild();
     await context.dispose();
 
-    // Copy manifest.json and styles.css to dist/obsidian
+    // Copy static files to dist/obsidian
     copyFileSync('manifest.json', 'dist/obsidian/manifest.json');
     copyFileSync('styles.css', 'dist/obsidian/styles.css');
+    copyFileSync('engine.js', 'dist/obsidian/engine.js');
 
     console.log('Obsidian plugin built successfully: dist/obsidian/');
   } else {
@@ -146,7 +96,6 @@ async function buildCliTool() {
     treeShaking: true,
     outfile: 'dist/cli/index.js',
     minify: prod,
-    plugins: [markdownItPluginsPlugin],
     // Node.js built-ins are external by default with platform: 'node'
   });
 
@@ -164,7 +113,7 @@ async function main() {
       await buildObsidianPlugin();
     }
 
-    if (prod && !buildCli) {
+    if (prod) {
       process.exit(0);
     }
   } catch (err) {

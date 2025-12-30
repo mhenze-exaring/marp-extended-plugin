@@ -45,9 +45,6 @@ export {
   markPlugin,
 } from './markdownItPlugins';
 
-// Engine
-export { getEngine } from './engine';
-
 // Path resolvers
 export {
   NodePathResolver,

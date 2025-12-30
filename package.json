@@ -50,6 +50,7 @@
 		"@marp-team/marp-core": "^4.0.1",
 		"commander": "^12.1.0",
 		"fix-path": "^4.0.0",
+		"markdown-it-mark": "^4.0.0",
 		"mermaid": "^11.12.2",
 		"mime": "^4.0.1"
 	}

@@ -3,6 +3,7 @@ import {
   FileSystemAdapter,
   ItemView,
   normalizePath,
+  Plugin,
   setIcon,
   TFile,
   ViewStateResult,
@@ -41,6 +42,7 @@ export class DeckView extends ItemView {
   file: TFile | null;
   settings: MarpPluginSettings;
   mermaidCache: MermaidCacheManager;
+  private plugin: Plugin;
   private marp: Marp;
   private marpBrowser: MarpCoreBrowser | undefined;
   private wrapperEl: HTMLElement;
@@ -66,11 +68,13 @@ export class DeckView extends ItemView {
     leaf: WorkspaceLeaf,
     settings: MarpPluginSettings,
     mermaidCache: MermaidCacheManager,
+    plugin: Plugin,
   ) {
     super(leaf);
     this.file = null;
     this.settings = settings;
     this.mermaidCache = mermaidCache;
+    this.plugin = plugin;
     this.marp = this.createMarpInstance();
   }
 
@@ -801,6 +805,7 @@ export class DeckView extends ItemView {
       enableMermaid: this.settings.enableMermaid,
       enableHTML: this.settings.enableHTML,
       mermaidCache: this.mermaidCache,
+      plugin: this.plugin,
     };
   }
 

@@ -11,8 +11,9 @@
  */
 
 import { program } from 'commander';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile, unlink } from 'fs/promises';
 import { dirname, basename, extname, resolve, join } from 'path';
+import { tmpdir } from 'os';
 import mimes from 'mime';
 import {
   loadConfig,
@@ -27,9 +28,38 @@ import {
   createExportConfigFromMarpConfig,
   type ExportContext,
 } from '../core/export';
+import {
+  genericContainerPlugin,
+  markPlugin,
+} from '../core/markdownItPlugins';
+
+// Re-export plugins for the generated engine.js to use
+export { genericContainerPlugin, markPlugin };
 
 // Package version (will be set during build)
 const VERSION = '1.0.0';
+
+/**
+ * Generate engine.js content for CLI
+ * This creates a self-contained engine that references the bundled CLI
+ */
+function generateCliEngineJs(cliPath: string): string {
+  return `
+// Auto-generated engine for marp-extended CLI
+const { genericContainerPlugin, markPlugin } = require('${cliPath.replace(/\\/g, '\\\\')}');
+
+module.exports = ({ marp }) =>
+  marp
+    .use(genericContainerPlugin)
+    .use(markPlugin)
+    .use((md) => {
+      // Allow data: URLs for images (required for embedded base64 images)
+      const defaultValidateLink = md.validateLink;
+      md.validateLink = (url) =>
+        /^data:image\\/.*?;/.test(url) || defaultValidateLink(url);
+    });
+`;
+}
 
 /**
  * Apply safe mode restrictions to config
@@ -206,6 +236,19 @@ program
     // Use input directory as root for resolving relative paths
     const pathResolver = new NodePathResolver({ rootPath: inputDir });
 
+    // Generate temp engine file if markdown-it plugins are enabled
+    let tempEnginePath: string | undefined;
+    if (exportConfig.enableMarkdownItPlugins) {
+      // Get path to CLI bundle (this file after bundling)
+      const cliBundlePath = resolve(__dirname, 'index.js');
+      tempEnginePath = join(tmpdir(), `marp-ext-engine-${Date.now()}.js`);
+      await writeFile(tempEnginePath, generateCliEngineJs(cliBundlePath));
+
+      if (verbose) {
+        console.debug(`Generated temp engine: ${tempEnginePath}`);
+      }
+    }
+
     // Create export context
     const exportContext: ExportContext = {
       pathResolver,
@@ -213,12 +256,18 @@ program
       getMimeType: (path) => mimes.getType(path),
       mermaidRenderer,
       plantumlRenderer,
+      enginePath: tempEnginePath,
       onProgress: verbose ? (msg) => console.debug(msg) : undefined,
       onError: (err) => console.error(err.message),
     };
 
     // Execute export
     const result = await exportPresentation(markdown, exportConfig, exportContext);
+
+    // Clean up temp engine file
+    if (tempEnginePath) {
+      await unlink(tempEnginePath).catch(() => {});
+    }
 
     if (result.success) {
       console.debug(`Exported: ${result.outputPath}`);

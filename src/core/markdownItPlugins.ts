@@ -1,11 +1,16 @@
 /**
  * Markdown-it plugins for marp-extended
  *
- * These are used by the marp-cli engine to process markdown.
- * They run AFTER Marp's own preprocessing (unlike the preprocessor functions).
+ * These plugins extend markdown-it functionality for Marp presentations.
+ * They are used both in Obsidian preview (via direct import) and in
+ * marp-cli export (via engine.js wrapper).
  */
 
 import type MarkdownIt from 'markdown-it';
+
+// Re-export markdown-it-mark from npm package
+// This provides ==highlighted text== syntax for <mark> tags
+export { default as markPlugin } from 'markdown-it-mark';
 
 /**
  * Parse space-separated CSS style declarations (without semicolons)
@@ -172,6 +177,13 @@ export function parseContainerDefinition(
 /**
  * Generic container plugin for markdown-it
  * Creates block-level custom containers with flexible syntax
+ *
+ * This is a custom implementation that supports features not available
+ * in standard container plugins:
+ * - Custom HTML tags (span, aside, section, etc.)
+ * - ID attributes
+ * - Multiple CSS classes
+ * - Inline style declarations
  *
  * Syntax: ::: [tag.]class[#id][ additional-classes][ style-declarations]
  *         content
@@ -356,137 +368,6 @@ export function genericContainerPlugin(md: MarkdownIt): void {
 
   md.block.ruler.before('fence', 'generic_container', container, {
     alt: ['paragraph', 'reference', 'blockquote', 'list'],
-  });
-}
-
-/**
- * markdown-it-mark plugin (v4.0.0)
- * Adds <mark> tag support for ==highlighted text==
- * Source: https://github.com/markdown-it/markdown-it-mark
- * License: MIT
- *
- * Usage: ==highlighted text==
- */
-export function markPlugin(md: MarkdownIt): void {
-  function tokenize(state: MarkdownIt.StateInline, silent: boolean): boolean {
-    const start = state.pos;
-    const marker = state.src.charCodeAt(start);
-
-    if (silent) {
-      return false;
-    }
-
-    if (marker !== 0x3d /* = */) {
-      return false;
-    }
-
-    const scanned = state.scanDelims(state.pos, true);
-    let len = scanned.length;
-    const ch = String.fromCharCode(marker);
-
-    if (len < 2) {
-      return false;
-    }
-
-    if (len % 2) {
-      const token = state.push('text', '', 0);
-      token.content = ch;
-      len--;
-    }
-
-    for (let i = 0; i < len; i += 2) {
-      const token = state.push('text', '', 0);
-      token.content = ch + ch;
-
-      if (!scanned.can_open && !scanned.can_close) {
-        continue;
-      }
-
-      state.delimiters.push({
-        marker,
-        length: 0,
-        token: state.tokens.length - 1,
-        end: -1,
-        open: scanned.can_open,
-        close: scanned.can_close,
-      });
-    }
-
-    state.pos += scanned.length;
-    return true;
-  }
-
-  function postProcess(state: MarkdownIt.StateInline, delimiters: MarkdownIt.StateInline.Delimiter[]): void {
-    const loneMarkers: number[] = [];
-    const max = delimiters.length;
-
-    for (let i = 0; i < max; i++) {
-      const startDelim = delimiters[i];
-
-      if (startDelim.marker !== 0x3d /* = */) {
-        continue;
-      }
-
-      if (startDelim.end === -1) {
-        continue;
-      }
-
-      const endDelim = delimiters[startDelim.end];
-
-      const token_o = state.tokens[startDelim.token];
-      token_o.type = 'mark_open';
-      token_o.tag = 'mark';
-      token_o.nesting = 1;
-      token_o.markup = '==';
-      token_o.content = '';
-
-      const token_c = state.tokens[endDelim.token];
-      token_c.type = 'mark_close';
-      token_c.tag = 'mark';
-      token_c.nesting = -1;
-      token_c.markup = '==';
-      token_c.content = '';
-
-      if (
-        state.tokens[endDelim.token - 1].type === 'text' &&
-        state.tokens[endDelim.token - 1].content === '='
-      ) {
-        loneMarkers.push(endDelim.token - 1);
-      }
-    }
-
-    while (loneMarkers.length) {
-      const i = loneMarkers.pop()!;
-      let j = i + 1;
-
-      while (j < state.tokens.length && state.tokens[j].type === 'mark_close') {
-        j++;
-      }
-
-      j--;
-
-      if (i !== j) {
-        const token = state.tokens[j];
-        state.tokens[j] = state.tokens[i];
-        state.tokens[i] = token;
-      }
-    }
-  }
-
-  md.inline.ruler.before('emphasis', 'mark', tokenize);
-  md.inline.ruler2.before('emphasis', 'mark', function (state: MarkdownIt.StateInline): boolean {
-    const tokens_meta = state.tokens_meta;
-    const max = (state.tokens_meta || []).length;
-
-    postProcess(state, state.delimiters);
-
-    for (let curr = 0; curr < max; curr++) {
-      const meta = tokens_meta[curr];
-      if (meta && meta.delimiters) {
-        postProcess(state, meta.delimiters);
-      }
-    }
-    return true;
   });
 }
 

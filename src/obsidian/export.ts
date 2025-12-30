@@ -6,7 +6,7 @@
  */
 
 import { access } from 'fs/promises';
-import { App, Notice, TFile, FileSystemAdapter } from 'obsidian';
+import { App, Notice, TFile, FileSystemAdapter, Plugin } from 'obsidian';
 import { join } from 'path';
 import fixPath from 'fix-path';
 import mimes from 'mime';
@@ -27,6 +27,8 @@ export interface ExportOptions {
   mermaidCache?: MermaidCacheManager;
   /** Enable HTML output */
   enableHTML?: boolean;
+  /** Plugin instance (for accessing plugin directory path) */
+  plugin?: Plugin;
 }
 
 /**
@@ -66,6 +68,7 @@ export async function exportSlide(
     enableMermaid = false,
     enableHTML = false,
     mermaidCache,
+    plugin,
   } = options;
 
   if (!file) return;
@@ -75,6 +78,14 @@ export async function exportSlide(
 
   const exportDir = getExportDir();
   const basePath = (app.vault.adapter as FileSystemAdapter).getBasePath();
+
+  // Determine engine path from plugin directory
+  // Plugin directory: {vault}/.obsidian/plugins/{plugin-id}/
+  let enginePath: string | undefined;
+  if (enableMarkdownItPlugins && plugin) {
+    const pluginDir = join(basePath, app.vault.configDir, 'plugins', plugin.manifest.id);
+    enginePath = join(pluginDir, 'engine.js');
+  }
   const fileDir = file.parent?.path || '';
   const outputPath = join(exportDir, `${file.basename}.${format}`);
 
@@ -118,6 +129,7 @@ export async function exportSlide(
     mermaidRenderer: enableMermaid && mermaidCache ? mermaidCache : undefined,
     wikilinkResolver: (name) => name, // Return filename as-is for embedding
     tempDir: exportDir, // Use export dir for temp files
+    enginePath, // Path to engine.js in plugin directory (for markdown-it plugins)
     onProgress: (message) => {
       console.debug(`[Marp Export] ${message}`);
     },

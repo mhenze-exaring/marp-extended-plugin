@@ -13,7 +13,6 @@ import { tmpdir } from 'os';
 import { join, dirname } from 'path';
 
 const execAsync = promisify(exec);
-import { getEngine } from './engine';
 import { preprocessForRender, type WikilinkResolver } from './preprocessor';
 import { embedAssets, type EmbeddingContext } from './embedding';
 import { buildMarpCliCommandString, contentRequiresHtml } from './marpCli';
@@ -102,6 +101,13 @@ export interface ExportContext {
 
   /** Temp directory override (default: os.tmpdir()) */
   tempDir?: string;
+
+  /**
+   * Path to the engine.js file for marp-cli
+   * If provided, this engine will be used instead of generating one.
+   * This is used by Obsidian to reference the bundled engine.js in the plugin directory.
+   */
+  enginePath?: string;
 }
 
 /**
@@ -131,26 +137,31 @@ export const DEFAULT_EXPORT_CONFIG: ExportConfig = {
 };
 
 /**
- * Generate unique temp file paths
+ * Generate unique temp file path for markdown
  */
-function getTempPaths(tempDir: string): { mdPath: string; enginePath: string } {
+function getTempMdPath(tempDir: string): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
-  return {
-    mdPath: join(tempDir, `marp-${timestamp}-${random}.md`),
-    enginePath: join(tempDir, `engine-${timestamp}-${random}.js`),
-  };
+  return join(tempDir, `marp-${timestamp}-${random}.md`);
 }
 
 /**
- * Clean up temporary files
+ * Clean up temporary markdown file
  */
-async function cleanup(paths: { mdPath: string; enginePath: string }): Promise<void> {
-  await Promise.all([
-    unlink(paths.mdPath).catch(() => {}),
-    unlink(paths.enginePath).catch(() => {}),
-  ]);
+async function cleanupMdFile(mdPath: string): Promise<void> {
+  await unlink(mdPath).catch(() => {});
 }
+
+/**
+ * Basic marp engine (no custom plugins)
+ * Only includes data URL validation for images
+ */
+const basicMarpEngineJs = `
+module.exports = ({ marp }) => marp.use((md) => {
+  // https://github.com/markdown-it/markdown-it/issues/447#issuecomment-373408654
+  const defaultValidateLink = md.validateLink;
+  md.validateLink = url => /^data:image\\/.*?;/.test(url) || defaultValidateLink(url);
+})`;
 
 /**
  * Unified export pipeline
@@ -160,8 +171,8 @@ async function cleanup(paths: { mdPath: string; enginePath: string }): Promise<v
  * Steps:
  * 1. Preprocess markdown (wikilinks, directives, diagrams)
  * 2. Embed assets (images, iframes) as base64
- * 3. Write temporary files (processed markdown, engine.js)
- * 4. Execute marp-cli
+ * 3. Write temporary markdown file
+ * 4. Execute marp-cli with engine.js from plugin directory (or basic engine)
  * 5. Clean up temporary files
  *
  * @param content - Markdown content to export
@@ -184,11 +195,21 @@ export async function exportPresentation(
     onProgress,
     onError,
     tempDir = tmpdir(),
+    enginePath: providedEnginePath,
   } = context;
 
-  const tempPaths = getTempPaths(tempDir);
+  const tempMdPath = getTempMdPath(tempDir);
+  let tempEnginePath: string | null = null;
 
   try {
+    // Validate engine availability for markdown-it plugins
+    if (config.enableMarkdownItPlugins && !providedEnginePath) {
+      throw new Error(
+        'Markdown-it plugins require an engine.js file. ' +
+        'Please provide enginePath in the export context.',
+      );
+    }
+
     // Report progress
     onProgress?.('Preprocessing markdown...');
 
@@ -226,25 +247,35 @@ export async function exportPresentation(
       });
     }
 
-    // 3. Write temporary files
+    // 3. Write temporary markdown file
     onProgress?.('Writing temporary files...');
 
     // Ensure temp directory exists
-    await mkdir(dirname(tempPaths.mdPath), { recursive: true });
+    await mkdir(dirname(tempMdPath), { recursive: true });
+    await writeFile(tempMdPath, processed);
 
-    await writeFile(tempPaths.mdPath, processed);
-    await writeFile(tempPaths.enginePath, getEngine(config.enableMarkdownItPlugins));
+    // 4. Determine engine path
+    let enginePath: string;
+    if (config.enableMarkdownItPlugins && providedEnginePath) {
+      // Use provided engine.js from plugin directory
+      enginePath = providedEnginePath;
+    } else {
+      // Write basic engine to temp file (no markdown-it plugins)
+      tempEnginePath = join(tempDir, `engine-${Date.now()}.js`);
+      await writeFile(tempEnginePath, basicMarpEngineJs);
+      enginePath = tempEnginePath;
+    }
 
-    // 4. Determine if HTML mode is needed
+    // 5. Determine if HTML mode is needed
     const needsHtml =
       config.enableHtml ||
       config.enableMermaid ||
       config.enablePlantUML ||
       contentRequiresHtml(processed);
 
-    // 5. Build marp-cli command
-    const cmd = buildMarpCliCommandString(tempPaths.mdPath, {
-      enginePath: tempPaths.enginePath,
+    // 6. Build marp-cli command
+    const cmd = buildMarpCliCommandString(tempMdPath, {
+      enginePath,
       outputPath: config.outputPath,
       format: config.format,
       enableHtml: needsHtml,
@@ -254,7 +285,7 @@ export async function exportPresentation(
       additionalArgs: config.additionalMarpArgs,
     });
 
-    // 6. Execute marp-cli
+    // 7. Execute marp-cli
     onProgress?.(`Exporting to ${config.format.toUpperCase()}...`);
 
     try {
@@ -262,7 +293,8 @@ export async function exportPresentation(
       if (stdout) onProgress?.(stdout);
       if (stderr) onProgress?.(stderr);
 
-      await cleanup(tempPaths);
+      await cleanupMdFile(tempMdPath);
+      if (tempEnginePath) await unlink(tempEnginePath).catch(() => {});
       onProgress?.('Export completed successfully');
 
       return {
@@ -270,7 +302,8 @@ export async function exportPresentation(
         outputPath: config.outputPath,
       };
     } catch (error) {
-      await cleanup(tempPaths);
+      await cleanupMdFile(tempMdPath);
+      if (tempEnginePath) await unlink(tempEnginePath).catch(() => {});
       const err = error instanceof Error ? error : new Error(String(error));
       onError?.(err);
       return {
@@ -281,7 +314,8 @@ export async function exportPresentation(
     }
   } catch (error) {
     // Cleanup on preprocessing/embedding errors
-    await cleanup(tempPaths);
+    await cleanupMdFile(tempMdPath);
+    if (tempEnginePath) await unlink(tempEnginePath).catch(() => {});
 
     const err = error instanceof Error ? error : new Error(String(error));
     onError?.(err);

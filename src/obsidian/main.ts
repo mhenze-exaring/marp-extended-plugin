@@ -12,6 +12,10 @@ import {
 } from './mermaidCache';
 import { EditorView, ViewUpdate } from '@codemirror/view';
 
+// Re-export markdown-it plugins for use by engine.js wrapper
+// This allows marp-cli to use the same plugins bundled in this file
+export { genericContainerPlugin, markPlugin } from '../core/markdownItPlugins';
+
 export default class MarpPlugin extends Plugin {
   settings: MarpPluginSettings;
   mermaidCache: MermaidCacheManager;
@@ -51,7 +55,7 @@ export default class MarpPlugin extends Plugin {
     // Register view
     this.registerView(
       MARP_DECK_VIEW_TYPE,
-      leaf => new DeckView(leaf, this.settings, this.mermaidCache),
+      leaf => new DeckView(leaf, this.settings, this.mermaidCache, this),
     );
     this.addSettingTab(new MarpSettingTab(this.app, this));
 
